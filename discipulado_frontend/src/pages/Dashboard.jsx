@@ -1,0 +1,1 @@
+export default function Dashboard() { return <h1>📊 Inicio (Dashboard)</h1>; }

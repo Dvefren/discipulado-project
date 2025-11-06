@@ -2,18 +2,24 @@
 
 from django.contrib import admin
 from django.urls import path, include
+
+# --- Importar la vista de REFRESH de SimpleJWT ---
 from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
     TokenRefreshView,
 )
+# --- Importar NUESTRA VISTA de login ---
+from usuarios.views import MyTokenObtainPairView 
+# ---
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     
     # --- URLs de Autenticación (Login) ---
-    # React enviará el POST (usuario/pass) aquí
-    path('api/v1/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    # Esta ruta sirve para refrescar un token que está por expirar
+    
+    # Usa nuestra vista personalizada
+    path('api/v1/token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'), 
+    
+    # Mantenemos la vista original para el "refresh"
     path('api/v1/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     # ---
     

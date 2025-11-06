@@ -1,0 +1,1 @@
+export default function Facilitadores() { return <h1>👤 Facilitadores</h1>; }

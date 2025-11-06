@@ -1,30 +1,34 @@
 // En src/App.jsx
 
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom';
 
-// --- Páginas ---
-// (Todavía no existen, las crearemos ahora)
-// function Layout() { return <h1>Layout (Sidebar + Contenido)</h1> }
-// function Dashboard() { return <h1>Página de Inicio (Dashboard)</h1> }
-// function Cursos() { return <h1>Página de Cursos</h1> }
-// function Asistencia() { return <h1>Página de Asistencia</h1> }
-// function Alumnos() { return <h1>Página de Alumnos</h1> }
-// function Facilitadores() { return <h1>Página de Facilitadores</h1> }
-// function Calendario() { return <h1>Página de Calendario</h1> }
-function Login() { return <h1>Página de Login</h1> }
-function NotFound() { return <h1>404 - Página no encontrada</h1> }
+// Layout
+import MainLayout from './layout/MainLayout';
+import ProtectedRoute from './router/ProtectedRoute'; // <-- 1. Importar el guardia
 
+// Páginas
+import Dashboard from './pages/Dashboard';
+import Cursos from './pages/Cursos';
+import Asistencia from './pages/Asistencia';
+import Alumnos from './pages/Alumnos';
+import Facilitadores from './pages/Facilitadores';
+import Calendario from './pages/Calendario';
+import Login from './pages/Login';
+import NotFound from './pages/NotFound';
 
 function App() {
-
   return (
     <Routes>
       {/* RUTAS PÚBLICAS (ej. Login) */}
       <Route path="/login" element={<Login />} />
 
       {/* RUTAS PRIVADAS (requieren estar logueado) */}
-      {/* Más adelante, aquí pondremos el Layout que contiene el Sidebar.
-        <Route path="/" element={<Layout />}>
+      
+      {/* 2. Envolvemos las rutas privadas con el "Guardia" */}
+      <Route element={<ProtectedRoute />}>
+        
+        {/* Todas las rutas aquí dentro solo serán visibles si estás logueado */}
+        <Route path="/" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="cursos" element={<Cursos />} />
           <Route path="asistencia" element={<Asistencia />} />
@@ -32,15 +36,13 @@ function App() {
           <Route path="facilitadores" element={<Facilitadores />} />
           <Route path="calendario" element={<Calendario />} />
         </Route>
-      */}
+        
+      </Route>
       
-      {/* Ruta principal temporal */}
-      <Route path="/" element={<h1>Página principal (Temporal)</h1>} />
-
       {/* Ruta para cualquier otra cosa */}
       <Route path="*" element={<NotFound />} />
     </Routes>
-  )
+  );
 }
 
-export default App
+export default App;
