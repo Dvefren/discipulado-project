@@ -1,0 +1,14 @@
+# En /discipulado_project_1/.gitignore
+
+# El archivo de secretos
+.env
+
+# El entorno virtual
+venv/
+
+# Cache de Python
+__pycache__/
+*.pyc
+
+# Base de datos local (por si acaso)
+*.sqlite3

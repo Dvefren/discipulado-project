@@ -1,0 +1,15 @@
+# Django / Backend
+__pycache__/
+*.pyc
+*.sqlite3
+/discipulado_project_1/venv/
+/discipulado_project_1/.env
+
+# React / Frontend
+/discipulado_frontend/node_modules/
+/discipulado_frontend/.env*
+/discipulado_frontend/dist/
+/discipulado_frontend/build/
+
+# Ignorar archivos del OS
+.DS_Store
