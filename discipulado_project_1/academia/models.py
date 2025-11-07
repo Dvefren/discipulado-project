@@ -82,7 +82,6 @@ class Asistencia(models.Model):
 
     alumno = models.ForeignKey(Alumno, on_delete=models.CASCADE, related_name='asistencias')
     # Guardamos la fecha y el número de clase (de 1 a 23)
-    fecha_clase = models.DateField()
     numero_clase = models.PositiveSmallIntegerField() # De 1 a 23
     
     estado = models.CharField(max_length=1, choices=Estado.choices)
