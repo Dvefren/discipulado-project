@@ -2,7 +2,7 @@
 
 from rest_framework import viewsets, permissions # Importar permissions
 from .models import CustomUser
-from .serializers import CustomUserSerializer, MyTokenObtainPairSerializer, UserCreateSerializer
+from .serializers import CustomUserSerializer, MyTokenObtainPairSerializer, UserCreateSerializer, UserUpdateSerializer
 # (Importamos el permiso de Admin de la otra app, aunque podríamos moverlo
 # a un archivo de permisos 'global')
 from academia.permissions import IsAdminUser 
@@ -22,13 +22,28 @@ class CustomUserViewSet(viewsets.ModelViewSet):
             # Si estamos creando (POST), usa el serializer de creación
             return UserCreateSerializer
         
+        # --- AÑADIR ESTA LÓGICA ---
+        if self.action in ['update', 'partial_update']:
+            return UserUpdateSerializer
+        # ---
+        
         # Para todo lo demás (GET, PUT, DELETE), usa el normal
         return CustomUserSerializer
     
     # --- (Opcional) Filtrar para que esta vista solo devuelva facilitadores ---
     def get_queryset(self):
         # Hacemos que este endpoint solo devuelva facilitadores
-        return CustomUser.objects.filter(role='FACILITADOR')
+        return CustomUser.objects.filter(role='FACILITADOR').order_by('is_active', 'first_name')
+    
+    def perform_destroy(self, instance):
+        """
+        Sobrescribe el borrado (DELETE) para hacer un "soft delete".
+        En lugar de borrar, solo lo marca como inactivo.
+        """
+        # (El modelo CustomUser hereda 'is_active' de AbstractUser)
+        instance.is_active = False
+        instance.save()
+        # No devolvemos nada, el frontend espera un 204 No Content
     
 class MyTokenObtainPairView(TokenObtainPairView):
     """

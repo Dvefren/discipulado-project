@@ -9,6 +9,22 @@ class Curso(models.Model):
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
     activo = models.BooleanField(default=True)
+    
+    # --- AÑADE ESTA FUNCIÓN COMPLETA ---
+    def save(self, *args, **kwargs):
+        """
+        Sobrescribe el método de guardado para asegurar que solo
+        un curso esté activo a la vez.
+        """
+        # Si este curso (self) se está guardando como 'activo=True'
+        if self.activo:
+            # Busca todos los OTROS cursos que estén activos
+            # y los pone como 'activo=False'
+            Curso.objects.filter(activo=True).exclude(pk=self.pk).update(activo=False)
+        
+        # Llama al método de guardado original para guardar este curso
+        super(Curso, self).save(*args, **kwargs)
+    # --- FIN DE LA FUNCIÓN ---
 
     def __str__(self):
         return self.nombre
@@ -38,6 +54,7 @@ class Mesa(models.Model):
         related_name='mesas_asignadas'
     )
     nombre_mesa = models.CharField(max_length=100, blank=True) # Ej: "Mesa 1"
+    activo = models.BooleanField(default=True)
 
     def __str__(self):
         # Ej: "Mesa de [Facilitador] (Miércoles 19:00)"

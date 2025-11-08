@@ -15,6 +15,8 @@ import Facilitadores from './pages/Facilitadores';
 import Calendario from './pages/Calendario';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
+import CursoDetail from './pages/CursoDetail';
+import HorarioDetail from './pages/HorarioDetail';
 
 function App() {
   return (
@@ -31,6 +33,8 @@ function App() {
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="cursos" element={<Cursos />} />
+          <Route path="cursos/:cursoId" element={<CursoDetail />} />
+          <Route path="horarios/:horarioId" element={<HorarioDetail />} />
           <Route path="asistencia" element={<Asistencia />} />
           <Route path="alumnos" element={<Alumnos />} />
           <Route path="facilitadores" element={<Facilitadores />} />

@@ -27,51 +27,116 @@ import datetime
 class CursoViewSet(viewsets.ModelViewSet):
     queryset = Curso.objects.all()
     serializer_class = CursoSerializer
-    permission_classes = [IsAdminUser] # <-- Solo Admins
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        """
+        Por defecto, solo muestra los cursos activos.
+        """
+        return Curso.objects.all().order_by('activo', '-fecha_inicio')
+
+    def perform_update(self, serializer):
+        """
+        Sobrescribe la actualización para manejar la desactivación en cascada.
+        """
+        instance = serializer.save() # Guarda el curso primero
+
+        # Si el curso se está desactivando (pasando de True a False)
+        if instance.activo is False and serializer.validated_data.get('activo') is False:
+            # 1. Desactivar todas las Mesas de este curso
+            mesas_del_curso = Mesa.objects.filter(horario__curso=instance)
+            mesas_del_curso.update(activo=False)
+            
+            # 2. Desactivar todos los Alumnos de esas mesas
+            Alumno.objects.filter(mesa__in=mesas_del_curso).update(activo=False)
 
 class HorarioViewSet(viewsets.ModelViewSet):
     queryset = Horario.objects.all()
     serializer_class = HorarioSerializer
     permission_classes = [IsAdminUser] # <-- Solo Admins
+    
+    def get_queryset(self):
+        """
+        Filtra los horarios por un 'curso' si se pasa
+        como parámetro en la URL (ej: /horarios/?curso=1)
+        """
+        queryset = Horario.objects.all()
+        # Obtenemos el 'curso' de los parámetros de la URL
+        curso_id = self.request.query_params.get('curso') 
+        
+        if curso_id:
+            queryset = queryset.filter(curso_id=curso_id)
+            
+        return queryset.order_by('dia', 'hora')
 
 # ---
 # 2. Mesas, Alumnos, Asistencia: Admins (todo) o Facilitadores (solo lo suyo)
 # ---
 class MesaViewSet(viewsets.ModelViewSet):
-    queryset = Mesa.objects.all()  # Necesario para el router
-    serializer_class = MesaSerializer
-    # Aplicamos el permiso de "dueño"
+    queryset = Mesa.objects.all()  # (Esto es necesario para el router)
+    serializer_class = MesaSerializer # (Usará el serializer corregido)
     permission_classes = [IsAdminOrFacilitador, IsFacilitadorOwnerOrAdmin]
 
     def get_queryset(self):
         """
-        Sobrescribimos esta función para filtrar los resultados:
-        - Si es Admin, devuelve todo.
-        - Si es Facilitador, devuelve solo su mesa.
+        Filtra por rol, estado activo, Y por horario.
+        (ej: /mesas/?horario=3)
         """
         user = self.request.user
+        queryset = Mesa.objects.all() 
+
+        horario_id = self.request.query_params.get('horario')
+        if horario_id:
+            queryset = queryset.filter(horario_id=horario_id)
+
+        # (Tu lógica de filtrado anterior estaba bien)
+        queryset = queryset.filter(activo=True) 
+
         if user.role == 'ADMIN':
-            return Mesa.objects.all()
+            return queryset.order_by('horario__dia', 'horario__hora')
         elif user.role == 'FACILITADOR':
-            # Filtramos las mesas donde el facilitador sea el usuario logueado
-            return Mesa.objects.filter(facilitador=user)
+            return queryset.filter(facilitador=user).order_by('horario__dia', 'horario__hora')
         
         return Mesa.objects.none()
+    
+    def perform_update(self, serializer):
+        """
+        Sobrescribe la actualización para manejar la desactivación en cascada.
+        (Esta función SÍ la necesitamos)
+        """
+        instance = serializer.save() # Guarda la mesa primero
+
+        # Si la mesa se está desactivando
+        if 'activo' in serializer.validated_data and instance.activo is False:
+            # Desactivar todos los Alumnos de esta mesa
+            Alumno.objects.filter(mesa=instance).update(activo=False)
 
 class AlumnoViewSet(viewsets.ModelViewSet):
-    queryset = Alumno.objects.all() # Necesario para el router
+    queryset = Alumno.objects.all()
     serializer_class = AlumnoSerializer
     permission_classes = [IsAdminOrFacilitador, IsFacilitadorOwnerOrAdmin]
 
     def get_queryset(self):
+        """
+        Filtra por rol Y por estado activo.
+        """
         user = self.request.user
+        
+        queryset = Alumno.objects.all() # <-- Solo alumnos activos
+
         if user.role == 'ADMIN':
-            return Alumno.objects.all()
+            return queryset.order_by('-activo','apellidos')
         elif user.role == 'FACILITADOR':
-            # Filtramos alumnos que pertenezcan a las mesas de este facilitador
-            return Alumno.objects.filter(mesa__facilitador=user)
+            return queryset.filter(mesa__facilitador=user).order_by('-activo', 'apellidos')
         
         return Alumno.objects.none()
+
+    def perform_destroy(self, instance):
+        """
+        Sobrescribe el borrado (DELETE) para hacer un "soft delete".
+        """
+        instance.activo = False
+        instance.save()
 
 class AsistenciaViewSet(viewsets.ModelViewSet):
     queryset = Asistencia.objects.all() # Necesario para el router

@@ -8,7 +8,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         # Campos que queremos exponer en la API
-        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'role']
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'role', 'is_active']
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     
@@ -51,3 +51,21 @@ class UserCreateSerializer(serializers.ModelSerializer):
             role='FACILITADOR'  # Forzamos el rol a Facilitador
         )
         return user
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer para *actualizar* facilitadores.
+    No permite cambiar el username ni la contraseña.
+    """
+    class Meta:
+        model = CustomUser
+        # Solo permitimos actualizar estos campos
+        fields = ['first_name', 'last_name', 'email', 'is_active']
+        
+class FacilitadorSimpleSerializer(serializers.ModelSerializer):
+    """
+    Serializer simple para mostrar solo el nombre de un facilitador.
+    """
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'first_name', 'last_name', 'username']
