@@ -2,6 +2,7 @@
 
 from rest_framework.routers import DefaultRouter
 from . import views
+from django.urls import path
 
 # Creamos un router
 router = DefaultRouter()
@@ -16,3 +17,8 @@ router.register(r'asistencias', views.AsistenciaViewSet)
 
 # Los urlpatterns son generados automáticamente por el router
 urlpatterns = router.urls
+
+urlpatterns.extend([
+    path('dashboard-stats/', views.DashboardStatsView.as_view(), name='dashboard-stats'),
+    path('cumpleanos/', views.CumpleanosView.as_view(), name='cumpleanos')
+])

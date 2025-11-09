@@ -38,6 +38,8 @@ class Horario(models.Model):
     curso = models.ForeignKey(Curso, on_delete=models.CASCADE, related_name='horarios')
     dia = models.CharField(max_length=3, choices=Dia.choices)
     hora = models.TimeField() # Ej: 19:00, 09:00, 11:00, 13:00
+    
+    activo = models.BooleanField(default=True) # <-- AÑADE ESTA LÍNEA
 
     def __str__(self):
         # Texto descriptivo, ej: "Discipulado 2025 - S1 - Miércoles 19:00"

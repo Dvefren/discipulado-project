@@ -1,5 +1,7 @@
 # En academia/views.py
 
+from django.db.models import Count, Q
+from django.utils import timezone
 from rest_framework import viewsets, status
 from .models import Curso, Horario, Mesa, Alumno, Asistencia
 from .serializers import (
@@ -51,23 +53,52 @@ class CursoViewSet(viewsets.ModelViewSet):
             Alumno.objects.filter(mesa__in=mesas_del_curso).update(activo=False)
 
 class HorarioViewSet(viewsets.ModelViewSet):
-    queryset = Horario.objects.all()
+    queryset = Horario.objects.all()  # (Necesario para el router)
     serializer_class = HorarioSerializer
-    permission_classes = [IsAdminUser] # <-- Solo Admins
-    
+    permission_classes = [IsAdminUser]
+
     def get_queryset(self):
         """
-        Filtra los horarios por un 'curso' si se pasa
-        como parámetro en la URL (ej: /horarios/?curso=1)
+        Devuelve TODOS los horarios (activos e inactivos),
+        ordenados por activo primero.
+        También filtra por 'curso' si se pasa en la URL.
         """
         queryset = Horario.objects.all()
-        # Obtenemos el 'curso' de los parámetros de la URL
-        curso_id = self.request.query_params.get('curso') 
         
+        curso_id = self.request.query_params.get('curso') 
         if curso_id:
             queryset = queryset.filter(curso_id=curso_id)
+        else:
+            queryset = queryset.filter(activo=True)
             
-        return queryset.order_by('dia', 'hora')
+        return queryset.order_by('-activo', 'dia', 'hora')
+
+    def perform_update(self, serializer):
+        """
+        Sobrescribe la actualización para manejar la desactivación en cascada.
+        """
+        instance = serializer.save() # Guarda el horario primero
+
+        # Si el horario se está desactivando (pasando de True a False)
+        if instance.activo is False and serializer.validated_data.get('activo') is False:
+            # 1. Desactivar todas las Mesas de este horario
+            mesas_del_horario = Mesa.objects.filter(horario=instance)
+            mesas_del_horario.update(activo=False)
+            
+            # 2. Desactivar todos los Alumnos de esas mesas
+            Alumno.objects.filter(mesa__in=mesas_del_horario).update(activo=False)
+    
+    def perform_destroy(self, instance):
+        """
+        Sobrescribe el borrado (DELETE) para hacer un "soft delete".
+        """
+        instance.activo = False
+        instance.save()
+        
+        # También desactivamos en cascada al "borrar"
+        mesas_del_horario = Mesa.objects.filter(horario=instance)
+        mesas_del_horario.update(activo=False)
+        Alumno.objects.filter(mesa__in=mesas_del_horario).update(activo=False)
 
 # ---
 # 2. Mesas, Alumnos, Asistencia: Admins (todo) o Facilitadores (solo lo suyo)
@@ -80,22 +111,27 @@ class MesaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Filtra por rol, estado activo, Y por horario.
-        (ej: /mesas/?horario=3)
+        ¡Lógica de filtrado corregida!
         """
         user = self.request.user
-        queryset = Mesa.objects.all() 
+        queryset = Mesa.objects.all() # Empezamos con todo
 
+        # 1. Filtramos por 'horario' si se pide
         horario_id = self.request.query_params.get('horario')
         if horario_id:
             queryset = queryset.filter(horario_id=horario_id)
 
-        # (Tu lógica de filtrado anterior estaba bien)
-        queryset = queryset.filter(activo=True) 
-
+        # 2. Filtramos por rol
         if user.role == 'ADMIN':
-            return queryset.order_by('horario__dia', 'horario__hora')
+            # El Admin ve todas (activas e inactivas)
+            return queryset.order_by('-activo', 'nombre_mesa')
+        
         elif user.role == 'FACILITADOR':
-            return queryset.filter(facilitador=user).order_by('horario__dia', 'horario__hora')
+            # El Facilitador solo ve sus mesas Y que estén activas
+            return queryset.filter(
+                facilitador=user,
+                activo=True
+            ).order_by('nombre_mesa')
         
         return Mesa.objects.none()
     
@@ -110,6 +146,16 @@ class MesaViewSet(viewsets.ModelViewSet):
         if 'activo' in serializer.validated_data and instance.activo is False:
             # Desactivar todos los Alumnos de esta mesa
             Alumno.objects.filter(mesa=instance).update(activo=False)
+        
+    def perform_destroy(self, instance):
+        """
+        Sobrescribe el borrado (DELETE) para hacer un "soft delete".
+        """
+        instance.activo = False
+        instance.save()
+        
+        # También desactivamos en cascada a los alumnos
+        Alumno.objects.filter(mesa=instance).update(activo=False)
 
 class AlumnoViewSet(viewsets.ModelViewSet):
     queryset = Alumno.objects.all()
@@ -211,63 +257,99 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
 # ---
 class DashboardStatsView(APIView):
     """
-    Vista para obtener las estadísticas del dashboard.
+    Vista para obtener las estadísticas del dashboard,
+    filtradas por 'numero_clase'.
     """
-    permission_classes = [IsAdminOrFacilitador] # Ambos pueden ver el dashboard
+    permission_classes = [IsAdminOrFacilitador]
 
     def get(self, request, *args, **kwargs):
         user = request.user
         
-        # --- Lógica de fechas ---
-        # Definimos "esta semana" como de miércoles a domingo
-        today = timezone.now().date()
-        weekday = today.weekday() # Lunes=0, Martes=1, Miércoles=2, ... Domingo=6
+        try:
+            numero_clase = int(request.query_params.get('clase', 1))
+        except ValueError:
+            numero_clase = 1
 
-        if weekday >= 2: # Si es Miércoles (2) o después
-            # El inicio de la semana fue el miércoles más reciente
-            start_of_week = today - datetime.timedelta(days=weekday - 2)
-        else: # Si es Lunes (0) o Martes (1)
-            # El inicio de la semana fue el miércoles de la semana pasada
-            start_of_week = today - datetime.timedelta(days=weekday + 5) # (weekday + 7 - 2)
-
-        end_of_week = start_of_week + datetime.timedelta(days=4) # Miércoles + 4 días = Domingo
-
-        # --- Base de la consulta de Asistencia ---
-        # Filtramos asistencias de esta semana y que sean 'FALTO'
+        # --- Base de la consulta ---
         base_queryset = Asistencia.objects.filter(
-            fecha_clase__range=[start_of_week, end_of_week],
-            estado='F'
+            numero_clase=numero_clase
         )
-
-        # Filtramos por rol
         if user.role == 'FACILITADOR':
             base_queryset = base_queryset.filter(alumno__mesa__facilitador=user)
 
         # --- Cálculo de Estadísticas ---
 
-        # 1. Faltas totales por horario
-        faltas_por_horario = base_queryset.values(
+        # 1. Faltas por Horario (Esta se queda igual)
+        faltas_queryset = base_queryset.filter(estado='F')
+        faltas_por_horario = faltas_queryset.values(
             'alumno__mesa__horario__dia', 
             'alumno__mesa__horario__hora'
         ).annotate(
             total_faltas=Count('id')
         ).order_by('alumno__mesa__horario__dia', 'alumno__mesa__horario__hora')
 
-        # 2. Faltas por mesa (para el admin)
-        faltas_por_mesa = []
+        # --- CAMBIO AQUÍ ---
+        # 2. Desglose DETALLADO por mesa (solo para Admin)
+        detalle_por_mesa = []
         if user.role == 'ADMIN':
-            faltas_por_mesa = base_queryset.values(
+            # NO filtramos por estado, sino que AGRUPAMOS por estado
+            detalle_por_mesa = base_queryset.values(
                 'alumno__mesa__nombre_mesa',
-                'alumno__mesa__facilitador__first_name'
+                'alumno__mesa__facilitador__first_name',
+                'alumno__mesa_id', # ID para agrupar en el frontend
+                'estado'          # Agrupamos también por estado
             ).annotate(
-                total_faltas=Count('id')
-            ).order_by('alumno__mesa__nombre_mesa')
+                total=Count('id') # Nuevo nombre
+            ).order_by('alumno__mesa__nombre_mesa', 'estado')
+        # --- FIN DEL CAMBIO ---
+
+        # 3. Conteo general (Se queda igual)
+        conteo_general = base_queryset.values('estado').annotate(
+            total=Count('id')
+        ).order_by('estado')
 
         # Datos para el frontend
         data = {
-            'rango_semana': f"{start_of_week.strftime('%Y-%m-%d')} al {end_of_week.strftime('%Y-%m-%d')}",
+            'numero_clase_consultada': numero_clase,
             'faltas_por_horario': list(faltas_por_horario),
-            'faltas_por_mesa': list(faltas_por_mesa),
+            'detalle_por_mesa': list(detalle_por_mesa), # <-- CAMBIO (antes 'asistencias_por_mesa')
+            'conteo_general': list(conteo_general),
         }
 
         return Response(data)
+
+class CumpleanosView(APIView):
+    """
+    Vista para obtener la lista de alumnos que cumplen años
+    en el mes actual, filtrados por rol.
+    """
+    permission_classes = [IsAdminOrFacilitador] # Ambos pueden ver la lista
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        
+        # 1. Obtener el mes actual (como un número, ej: 11 para Noviembre)
+        current_month = timezone.now().month
+
+        # 2. Base de la consulta:
+        #    - Alumnos activos
+        #    - Que su mes de nacimiento coincida con el mes actual
+        base_queryset = Alumno.objects.filter(
+            activo=True,
+            fecha_nacimiento__month=current_month
+        )
+
+        # 3. Filtrar por rol
+        if user.role == 'FACILITADOR':
+            # Facilitador solo ve alumnos de sus mesas activas
+            base_queryset = base_queryset.filter(
+                mesa__facilitador=user,
+                mesa__activo=True
+            )
+        
+        # 4. Ordenar por día del mes
+        alumnos = base_queryset.order_by('fecha_nacimiento__day')
+        
+        # 5. Usamos el AlumnoSerializer que ya teníamos
+        serializer = AlumnoSerializer(alumnos, many=True)
+        return Response(serializer.data)

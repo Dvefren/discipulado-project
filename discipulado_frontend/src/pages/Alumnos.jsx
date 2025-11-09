@@ -236,10 +236,9 @@ export default function Alumnos() {
             <option value="">-- Selecciona una mesa --</option>
             {mesas.map(mesa => (
               <option key={mesa.id} value={mesa.id}>
-                {/* Asumimos que el backend nos da el ID del facilitador.
-                    Sería mejor si el backend nos diera el nombre.
-                    Por ahora, usamos el ID. */}
-                {mesa.nombre_mesa || `Mesa ID: ${mesa.id}`} (Fac. ID: {mesa.facilitador})
+                {mesa.nombre_mesa || `Mesa ID: ${mesa.id}`} 
+                {/* CAMBIO AQUÍ: Accedemos a .first_name */}
+                (Fac: {mesa.facilitador ? mesa.facilitador.first_name : 'N/A'})
               </option>
             ))}
           </select>
