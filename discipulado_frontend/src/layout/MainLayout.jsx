@@ -1,70 +1,115 @@
 // En src/layout/MainLayout.jsx
 
 import React from 'react';
-import { Outlet, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext'; // 1. Importar el hook de Auth
+import { Outlet, Link as RouterLink, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-// --- (Estilos temporales) ---
-const layoutStyle = {
-  display: 'flex',
-  height: '100vh',
-};
+// --- Importaciones de MUI ---
+import Box from '@mui/material/Box';
+import Drawer from '@mui/material/Drawer';
+import AppBar from '@mui/material/AppBar';
+import CssBaseline from '@mui/material/CssBaseline';
+import Toolbar from '@mui/material/Toolbar';
+import List from '@mui/material/List';
+import Typography from '@mui/material/Typography';
+import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Button from '@mui/material/Button'; // Para el botón de logout
 
-const sidebarStyle = {
-  width: '250px',
-  background: '#f4f4f4',
-  padding: '20px',
-  borderRight: '1px solid #ddd',
-};
-
-const contentStyle = {
-  flex: 1,
-  padding: '20px',
-  overflowY: 'auto', // Para permitir scroll en el contenido
-};
+// --- Importaciones de Iconos ---
+import HomeIcon from '@mui/icons-material/Home';
+import SchoolIcon from '@mui/icons-material/School';
+import PeopleIcon from '@mui/icons-material/People';
+import CoPresentIcon from '@mui/icons-material/CoPresent';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import ChecklistIcon from '@mui/icons-material/Checklist';
 // ---
 
-export default function MainLayout() {
-  const { user, logout } = useAuth(); // 2. Obtener el usuario y la función logout
+const drawerWidth = 260; // Ancho del sidebar
 
-  const handleLogout = () => {
-    logout();
-    // (No necesitamos redirigir, el ProtectedRoute lo hará automáticamente)
-  };
+export default function MainLayout() {
+  const { user, logout } = useAuth();
+  const location = useLocation(); // Para saber qué página está activa
+
+  const userRole = user ? user.role : null;
+
+  // Lista de todos los items de navegación
+  const navItems = [
+    { text: 'Inicio', icon: <HomeIcon />, path: '/', roles: ['ADMIN', 'FACILITADOR'] },
+    { text: 'Alumnos', icon: <PeopleIcon />, path: '/alumnos', roles: ['ADMIN', 'FACILITADOR'] },
+    { text: 'Calendario', icon: <CalendarMonthIcon />, path: '/calendario', roles: ['ADMIN', 'FACILITADOR'] },
+    { text: 'Asistencia', icon: <ChecklistIcon />, path: '/asistencia', roles: ['FACILITADOR'] },
+    { text: 'Cursos', icon: <SchoolIcon />, path: '/cursos', roles: ['ADMIN'] },
+    { text: 'Facilitadores', icon: <CoPresentIcon />, path: '/facilitadores', roles: ['ADMIN'] },
+  ];
 
   return (
-    <div style={layoutStyle}>
-      {/* 1. El Sidebar */}
-      <aside style={sidebarStyle}>
-        <h2>Discipulado</h2>
-
-        {/* 3. Mostrar el nombre del usuario */}
-        {user && <p>Hola, {user.first_name || user.username}</p>}
-
-        <nav>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {/* Estos son los enlaces que React Router usará */}
-            <li><Link to="/">Inicio</Link></li>
-            <li><Link to="/cursos">Cursos</Link></li>
-            <li><Link to="/alumnos">Alumnos</Link></li>
-            <li><Link to="/asistencia">Asistencia</Link></li>
-            <li><Link to="/facilitadores">Facilitadores</Link></li>
-            <li><Link to="/calendario">Calendario</Link></li>
-            <hr />
-            {/* 4. Conectar el botón de logout */}
-            <li>
-              <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: 'blue', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontSize: '1em' }}>
-                Cerrar Sesión
-              </button>
-            </li>
-          </ul>
-        </nav>
-      </aside>
-
-      {/* 2. El Contenido (aquí se renderiza la página actual) */}
-      <main style={contentStyle}>
+    <Box sx={{ display: 'flex' }}>
+      {/* 1. Resetea los estilos CSS */}
+      <CssBaseline />
+      
+      {/* 2. La Barra Superior (AppBar) */}
+      <AppBar 
+        position="fixed" 
+        sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }} // Se pone por encima del sidebar
+      >
+        <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Typography variant="h6" noWrap component="div">
+            Discipulado
+          </Typography>
+          <div>
+            <Typography variant="body2" component="span" sx={{ marginRight: 2 }}>
+              {user.first_name || user.username}
+            </Typography>
+            <Button color="red" onClick={logout}>
+              Cerrar Sesión
+            </Button>
+          </div>
+        </Toolbar>
+      </AppBar>
+      
+      {/* 3. El Sidebar (Drawer) */}
+      <Drawer
+        variant="permanent" // Siempre visible
+        sx={{
+          width: drawerWidth,
+          flexShrink: 0,
+          [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
+        }}
+      >
+        <Toolbar /> {/* Un espacio vacío para que el contenido empiece debajo del AppBar */}
+        <Box sx={{ overflow: 'auto' }}>
+          <List>
+            {navItems.map((item) => (
+              // Filtramos los items basado en el rol del usuario
+              item.roles.includes(userRole) && (
+                <ListItem key={item.text} disablePadding>
+                  <ListItemButton
+                    component={RouterLink} // Usamos el Link de React Router
+                    to={item.path}
+                    selected={location.pathname === item.path} // Se resalta el item activo
+                  >
+                    <ListItemIcon>
+                      {item.icon}
+                    </ListItemIcon>
+                    <ListItemText primary={item.text} />
+                  </ListItemButton>
+                </ListItem>
+              )
+            ))}
+          </List>
+        </Box>
+      </Drawer>
+      
+      {/* 4. El Contenido Principal de la Página */}
+      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+        <Toolbar /> {/* Otro espacio para que el contenido empiece debajo del AppBar */}
+        
+        {/* Aquí es donde se renderizan las páginas (Dashboard, Cursos, etc.) */}
         <Outlet /> 
-      </main>
-    </div>
+      </Box>
+    </Box>
   );
 }

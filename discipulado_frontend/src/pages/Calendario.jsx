@@ -2,47 +2,32 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../services/api';
 
-// (Estilos)
-const cardStyle = {
-  background: '#fff',
-  border: '1px solid #ddd',
-  padding: '15px',
-  marginBottom: '10px',
-  borderRadius: '8px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '15px', // Espacio entre el día y el nombre
-};
-
-const dayStyle = {
-  fontSize: '1.5em',
-  fontWeight: 'bold',
-  color: '#007bff',
-  minWidth: '40px',
-  textAlign: 'center',
-};
+// --- NUEVO: Importaciones de MUI ---
+import {
+  Box,
+  Typography,
+  Paper, // Usaremos Paper para las tarjetas
+  Stack, // Para apilar la lista
+} from '@mui/material';
 // ---
 
 export default function Calendario() {
   const [cumpleaneros, setCumpleaneros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // --- Obtenemos el nombre del mes actual ---
   const [nombreMes, setNombreMes] = useState('');
+
+  // --- (Lógica para obtener el nombre del mes - queda igual) ---
   useEffect(() => {
-    // Obtenemos el nombre del mes actual en español
     const nombre = new Date().toLocaleString('es-ES', { month: 'long' });
-    // Convertimos la primera letra a mayúscula
     setNombreMes(nombre.charAt(0).toUpperCase() + nombre.slice(1));
   }, []);
-  // ---
 
+  // --- (Lógica de fetchCumpleanos - queda igual) ---
   useEffect(() => {
     const fetchCumpleanos = async () => {
       try {
         setLoading(true);
-        // 1. Llamamos a nuestro nuevo endpoint
         const response = await apiClient.get('/cumpleanos/');
         setCumpleaneros(response.data);
         setError(null);
@@ -55,13 +40,10 @@ export default function Calendario() {
     };
 
     fetchCumpleanos();
-  }, []); // Se ejecuta solo una vez al cargar
+  }, []);
 
-  // --- Función para obtener solo el día ---
+  // --- (Lógica de getDay - queda igual) ---
   const getDay = (fechaString) => {
-    // fechaString es "YYYY-MM-DD"
-    // Dividimos por el guion y tomamos la tercera parte (el día)
-    // Usamos split en lugar de new Date() para evitar problemas de zona horaria
     try {
       return fechaString.split('-')[2];
     } catch {
@@ -69,37 +51,64 @@ export default function Calendario() {
     }
   };
 
-  // --- Renderizado ---
+  // --- RENDERIZADO (Aquí están los cambios) ---
+  
   if (loading) {
-    return <p>Cargando cumpleaños...</p>;
+    return <Typography>Cargando cumpleaños...</Typography>;
   }
 
   if (error) {
-    return <p style={{ color: 'red' }}>{error}</p>;
+    return <Typography color="error">{error}</Typography>;
   }
 
   return (
-    <div>
-      <h1>🗓️ Cumpleaños de {nombreMes}</h1>
+    <Box>
+      <Typography variant="h4" component="h1" gutterBottom>
+        🗓️ Cumpleaños de {nombreMes}
+      </Typography>
       
       {cumpleaneros.length === 0 ? (
-        <p>Nadie cumple años este mes.</p>
+        <Typography>Nadie cumple años este mes.</Typography>
       ) : (
-        <div>
+        <Stack spacing={2}> {/* Apila las tarjetas verticalmente */}
           {cumpleaneros.map((alumno) => (
-            <div key={alumno.id} style={cardStyle}>
-              <div style={dayStyle}>
+            <Paper 
+              key={alumno.id} 
+              variant="outlined" 
+              sx={{ 
+                p: 2, // padding
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 2 // Espacio entre el día y el nombre
+              }}
+            >
+              {/* Estilo para el día (reemplaza dayStyle) */}
+              <Typography 
+                variant="h5" 
+                component="div"
+                sx={{ 
+                  fontWeight: 'bold', 
+                  color: 'primary.main', // Color azul de MUI
+                  minWidth: '40px', 
+                  textAlign: 'center' 
+                }}
+              >
                 {getDay(alumno.fecha_nacimiento)}
-              </div>
-              <div>
-                <strong>{alumno.nombres} {alumno.apellidos}</strong>
-                <br />
-                <small>Fecha: {alumno.fecha_nacimiento}</small>
-              </div>
-            </div>
+              </Typography>
+              
+              {/* Nombre y fecha */}
+              <Box>
+                <Typography variant="h6">
+                  {alumno.nombres} {alumno.apellidos}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Fecha: {alumno.fecha_nacimiento}
+                </Typography>
+              </Box>
+            </Paper>
           ))}
-        </div>
+        </Stack>
       )}
-    </div>
+    </Box>
   );
 }

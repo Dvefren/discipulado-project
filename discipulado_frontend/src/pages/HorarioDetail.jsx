@@ -1,41 +1,52 @@
 // En src/pages/HorarioDetail.jsx
 
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link as RouterLink } from 'react-router-dom'; // Importamos RouterLink
 import apiClient from '../services/api';
-import { useAuth } from '../context/AuthContext'; // <-- Importar useAuth
+import { useAuth } from '../context/AuthContext';
 
-// (Estilos)
-const formStyle = { display: 'flex', flexDirection: 'column', gap: '10px', padding: '20px', background: '#f9f9f9', borderRadius: '8px', marginBottom: '20px' };
-const inputStyle = { padding: '8px', borderRadius: '4px', border: '1px solid #ccc' };
-const buttonStyle = { padding: '10px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' };
-const errorStyle = { color: 'red', fontSize: '0.9em' };
-const cardStyle = { 
-  background: '#fff', 
-  border: '1px solid #ddd', 
-  padding: '15px', 
-  marginBottom: '10px', 
-  borderRadius: '8px',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  transition: 'all 0.3s ease',
+// --- NUEVO: Importaciones de MUI ---
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardActions,
+  Typography,
+  Modal,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Stack,
+  Link, // Para el "volver"
+  Chip,
+  Checkbox,
+  FormControlLabel,
+} from '@mui/material';
+
+// --- NUEVO: Importaciones de Iconos ---
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
+import DoNotDisturbOnIcon from '@mui/icons-material/DoNotDisturbOn';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+// ---
+
+// --- NUEVO: Estilo para el Modal ---
+const modalStyle = {
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: 400,
+  bgcolor: 'background.paper',
+  border: '2px solid #000',
+  boxShadow: 24,
+  p: 4,
+  borderRadius: 2,
 };
-const inactiveCardStyle = {
-  ...cardStyle,
-  background: '#f8f9fa',
-  opacity: 0.7,
-};
-const actionButtonStyle = {
-  marginLeft: '10px',
-  padding: '5px 10px',
-  border: 'none',
-  borderRadius: '4px',
-  cursor: 'pointer',
-};
-const editButtonStyle = { ...actionButtonStyle, background: '#ffc107', color: 'black' };
-const deleteButtonStyle = { ...actionButtonStyle, background: '#dc3545', color: 'white' };
-const activateButtonStyle = { ...actionButtonStyle, background: '#28a745', color: 'white' };
 // ---
 
 const initialFormState = {
@@ -47,7 +58,7 @@ const initialFormState = {
 
 export default function HorarioDetail() {
   const { horarioId } = useParams();
-  const { user } = useAuth(); // <-- Obtener el usuario
+  const { user } = useAuth();
   
   const [horario, setHorario] = useState(null);
   const [mesas, setMesas] = useState([]);
@@ -55,29 +66,24 @@ export default function HorarioDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // --- Estados para el formulario ---
-  const [formMode, setFormMode] = useState('hidden'); // 'hidden', 'create', 'edit'
+  const [formMode, setFormMode] = useState('hidden');
   const [editingMesa, setEditingMesa] = useState(null);
   const [formData, setFormData] = useState(initialFormState);
   const [formError, setFormError] = useState(null);
 
-  // --- Cargar datos ---
+  // --- (Lógica de fetchData - queda igual) ---
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-
-      // (El backend ahora devuelve TODAS las mesas si eres Admin)
       const [horarioRes, mesasRes, facilitadoresRes] = await Promise.all([
         apiClient.get(`/horarios/${horarioId}/`),
         apiClient.get(`/mesas/?horario=${horarioId}`),
-        apiClient.get('/auth/usuarios/') // Facilitadores activos
+        apiClient.get('/auth/usuarios/')
       ]);
-      
       setHorario(horarioRes.data);
       setMesas(mesasRes.data);
       setFacilitadores(facilitadoresRes.data);
-      
       setFormData(prev => ({ ...initialFormState, horario: horarioId }));
     } catch (err) {
       console.error("Error al cargar datos:", err);
@@ -88,12 +94,12 @@ export default function HorarioDetail() {
   };
 
   useEffect(() => {
-    if (user) { // Asegurarse de que el usuario esté cargado
+    if (user) {
       fetchData();
     }
   }, [horarioId, user]);
 
-  // --- Manejadores del formulario ---
+  // --- (Lógica de handleInputChange - queda igual) ---
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData({
@@ -102,13 +108,17 @@ export default function HorarioDetail() {
     });
   };
 
+  // --- (Lógica de handleSubmit - queda igual) ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError(null);
 
-    // Quitamos 'facilitador' del estado y usamos 'facilitador_id'
-    const { facilitador, ...payload } = formData;
-    payload.facilitador_id = formData.facilitador_id; // Asegurarse de que el ID esté
+    const payload = {
+      nombre_mesa: formData.nombre_mesa,
+      horario: formData.horario,
+      facilitador_id: formData.facilitador_id,
+      activo: formData.activo,
+    };
 
     if (!payload.facilitador_id) {
       setFormError("Debes seleccionar un facilitador.");
@@ -121,14 +131,14 @@ export default function HorarioDetail() {
     try {
       await apiClient[method](url, payload);
       handleCancel();
-      fetchData(); // Recargamos todo
+      fetchData();
     } catch (err) {
       console.error("Error al guardar mesa:", err);
       setFormError("Error al guardar la mesa.");
     }
   };
   
-  // --- (Manejadores de botones) ---
+  // --- (Lógica de 'handleShow...', 'handleCancel', 'handleDeactivate', 'handleActivate' - quedan igual) ---
   const handleShowCreateForm = () => {
     setFormMode('create');
     setEditingMesa(null);
@@ -140,7 +150,7 @@ export default function HorarioDetail() {
     setEditingMesa(mesa);
     setFormData({
       nombre_mesa: mesa.nombre_mesa || '',
-      facilitador_id: mesa.facilitador.id, // <-- Usar el ID del objeto facilitador
+      facilitador_id: mesa.facilitador.id,
       horario: mesa.horario,
       activo: mesa.activo,
     });
@@ -156,7 +166,7 @@ export default function HorarioDetail() {
   const handleDeactivate = async (mesaId) => {
     if (window.confirm("¿Estás seguro de que quieres DESACTIVAR esta mesa? (Esto desactivará a sus alumnos)")) {
       try {
-        await apiClient.delete(`/mesas/${mesaId}/`); // El backend intercepta DELETE
+        await apiClient.delete(`/mesas/${mesaId}/`);
         fetchData();
       } catch (err) {
         console.error("Error al desactivar mesa:", err);
@@ -177,100 +187,160 @@ export default function HorarioDetail() {
     }
   };
 
-  // --- Renderizado ---
-  if (loading) return <p>Cargando horario...</p>;
-  if (error) return <p style={{ color: 'red' }}>{error}</p>;
-  if (!horario) return <p>Horario no encontrado.</p>;
+  // --- RENDERIZADO (Aquí están los cambios) ---
+  if (loading) return <Typography>Cargando horario...</Typography>;
+  if (error) return <Typography color="error">{error}</Typography>;
+  if (!horario) return <Typography>Horario no encontrado.</Typography>;
 
   return (
-    <div>
-      <Link to={`/cursos/${horario.curso}`}>&larr; Volver al curso</Link>
+    <Box>
+      <Button
+        component={RouterLink}
+        to={`/cursos/${horario.curso}`} // Vuelve al curso padre
+        variant="outlined"
+        startIcon={<ArrowBackIcon />}
+        sx={{ mb: 2 }}
+      >
+        Volver al Curso
+      </Button>
       
-      <h1>Gestión de Mesas</h1>
-      <h2>Horario: {horario.dia === 'MIE' ? 'Miércoles' : 'Domingo'} a las {horario.hora}</h2>
+      <Typography variant="h4" component="h1" gutterBottom>
+        Gestión de Mesas
+      </Typography>
+      <Typography variant="h5" component="h2" gutterBottom>
+        Horario: {horario.dia === 'MIE' ? 'Miércoles' : 'Domingo'} a las {horario.hora}
+      </Typography>
 
-      {/* --- Formulario de Creación/Edición --- */}
       {formMode === 'hidden' && (
-        <button onClick={handleShowCreateForm} style={{...buttonStyle, background: '#28a745', marginBottom: '20px'}}>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          startIcon={<AddIcon />} 
+          onClick={handleShowCreateForm}
+          sx={{ mb: 3 }}
+        >
           Añadir Nueva Mesa
-        </button>
+        </Button>
       )}
 
-      {formMode !== 'hidden' && (
-        <form onSubmit={handleSubmit} style={formStyle}>
-          <h3>{formMode === 'create' ? 'Nueva Mesa' : 'Editando Mesa'}</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div>
-              <label htmlFor="facilitador_id">* Facilitador:</label>
-              <select id="facilitador_id" name="facilitador_id" value={formData.facilitador_id} onChange={handleInputChange} style={inputStyle} required>
-                <option value="">-- Selecciona un facilitador --</option>
-                {facilitadores.map(facil => (
-                  <option key={facil.id} value={facil.id}>
-                    {facil.first_name} {facil.last_name} ({facil.username})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="nombre_mesa">Nombre de la Mesa (Opcional):</label>
-              <input type="text" id="nombre_mesa" name="nombre_mesa" value={formData.nombre_mesa} onChange={handleInputChange} style={inputStyle} />
-            </div>
-            {formMode === 'edit' && (
-              <div>
-                <input type="checkbox" name="activo" id="activo" checked={formData.activo} onChange={handleInputChange} />
-                <label htmlFor="activo" style={{ marginLeft: '5px' }}>¿Activa?</label>
-              </div>
-            )}
-          </div>
-          {formError && <p style={errorStyle}>{formError}</p>}
-          <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-            <button type="button" onClick={handleCancel} style={{...buttonStyle, background: '#6c757d'}}>Cancelar</button>
-            <button type="submit" style={buttonStyle}>
-              {formMode === 'create' ? 'Crear Mesa' : 'Guardar Cambios'}
-            </button>
-          </div>
-        </form>
-      )}
+      {/* --- Formulario en Modal --- */}
+      <Modal
+        open={formMode !== 'hidden'}
+        onClose={handleCancel}
+      >
+        <Box sx={modalStyle}>
+          <Typography variant="h5" component="h2">
+            {formMode === 'create' ? 'Nueva Mesa' : `Editando Mesa`}
+          </Typography>
+          
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            <Stack spacing={2}>
+              <FormControl fullWidth required>
+                <InputLabel id="facilitador-select-label">Facilitador</InputLabel>
+                <Select
+                  labelId="facilitador-select-label"
+                  id="facilitador_id"
+                  name="facilitador_id"
+                  label="Facilitador"
+                  value={formData.facilitador_id}
+                  onChange={handleInputChange}
+                >
+                  <MenuItem value="">-- Selecciona un facilitador --</MenuItem>
+                  {facilitadores.map(facil => (
+                    <MenuItem key={facil.id} value={facil.id}>
+                      {facil.first_name} {facil.last_name} ({facil.username})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              <TextField
+                name="nombre_mesa"
+                label="Nombre de la Mesa (Opcional)"
+                value={formData.nombre_mesa}
+                onChange={handleInputChange}
+                fullWidth
+              />
+              
+              {formMode === 'edit' && (
+                <FormControlLabel
+                  control={
+                    <Checkbox 
+                      name="activo" 
+                      checked={formData.activo} 
+                      onChange={handleInputChange} 
+                    />
+                  }
+                  label="¿Activa?"
+                />
+              )}
+            </Stack>
+            
+            {formError && <Typography color="error" sx={{ mt: 2 }}>{formError}</Typography>}
+            
+            <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
+              <Button variant="outlined" onClick={handleCancel}>Cancelar</Button>
+              <Button variant="contained" type="submit">
+                {formMode === 'create' ? 'Crear Mesa' : 'Guardar Cambios'}
+              </Button>
+            </Stack>
+          </Box>
+        </Box>
+      </Modal>
 
-      <hr />
+      <hr style={{ margin: '20px 0' }} />
 
-      {/* --- Lista de Mesas Existentes --- */}
-      <h2>Mesas en este Horario</h2>
+      {/* --- Lista de Mesas Existentes con MUI Cards --- */}
+      <Typography variant="h5" component="h2" gutterBottom>
+        Mesas en este Horario
+      </Typography>
+      
       {mesas.length === 0 ? (
-        <p>No hay mesas registradas para este horario.</p>
+        <Typography>No hay mesas registradas para este horario.</Typography>
       ) : (
-        <div>
+        <Stack spacing={2}>
           {mesas.map(mesa => (
-            <div key={mesa.id} style={mesa.activo ? cardStyle : inactiveCardStyle}>
-              <div>
-                <strong>{mesa.nombre_mesa || `Mesa ID: ${mesa.id}`}</strong>
+            <Card key={mesa.id} variant="outlined" sx={{ opacity: mesa.activo ? 1 : 0.6 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="h6">
+                    {mesa.nombre_mesa || `Mesa ID: ${mesa.id}`}
+                  </Typography>
+                  {mesa.activo ? 
+                    <Chip label="Activa" color="success" size="small" /> :
+                    <Chip label="Inactiva" color="default" size="small" />
+                  }
+                </Box>
                 {mesa.facilitador ? (
-                  <p>Facilitador: {mesa.facilitador.first_name} {mesa.facilitador.last_name}</p>
+                  <Typography variant="body2" color="text.secondary">
+                    Facilitador: {mesa.facilitador.first_name} {mesa.facilitador.last_name}
+                  </Typography>
                 ) : (
-                  <p>Facilitador no asignado</p>
+                  <Typography variant="body2" color="error">
+                    Facilitador no asignado
+                  </Typography>
                 )}
-                {!mesa.activo && <strong style={{ color: 'red' }}>(INACTIVA)</strong>}
-              </div>
-              <div>
+              </CardContent>
+              <CardActions sx={{ justifyContent: 'flex-end' }}>
                 {mesa.activo ? (
                   <>
-                    <button onClick={() => handleShowEditForm(mesa)} style={editButtonStyle}>
+                    <Button size="small" variant="outlined" color="warning" startIcon={<EditIcon />} onClick={() => handleShowEditForm(mesa)}>
                       Editar
-                    </button>
-                    <button onClick={() => handleDeactivate(mesa.id)} style={deleteButtonStyle}>
+                    </Button>
+                    <Button size="small" variant="outlined" color="error" startIcon={<DoNotDisturbOnIcon />} onClick={() => handleDeactivate(mesa.id)}>
                       Desactivar
-                    </button>
+                    </Button>
                   </>
                 ) : (
-                  <button onClick={() => handleActivate(mesa.id)} style={activateButtonStyle}>
+                  <Button size="small" variant="outlined" color="success" startIcon={<PowerSettingsNewIcon />} onClick={() => handleActivate(mesa.id)}>
                     Activar
-                  </button>
+                  </Button>
                 )}
-              </div>
-            </div>
+              </CardActions>
+            </Card>
           ))}
-        </div>
+        </Stack>
       )}
-    </div>
+    </Box>
   );
 }

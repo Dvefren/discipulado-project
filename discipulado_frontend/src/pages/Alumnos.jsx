@@ -2,49 +2,45 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../services/api';
 
-// --- (Estilos) ---
-const cardStyle = {
-  background: '#fff',
-  border: '1px solid #ddd',
-  padding: '15px',
-  marginBottom: '10px',
-  borderRadius: '8px',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  transition: 'all 0.3s ease',
-};
+// --- NUEVO: Importaciones de MUI ---
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardActions,
+  Typography,
+  Chip,
+  Modal,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Stack,
+  Grid, // Para el formulario
+} from '@mui/material';
 
-const inactiveCardStyle = {
-  ...cardStyle,
-  background: '#f8f9fa',
-  opacity: 0.6,
-};
+// --- NUEVO: Importaciones de Iconos ---
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
+import DoNotDisturbOnIcon from '@mui/icons-material/DoNotDisturbOn';
+// ---
 
-const formStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '10px',
-  padding: '20px',
-  background: '#f9f9f9',
-  borderRadius: '8px',
-  marginBottom: '20px',
+// --- NUEVO: Estilo para el Modal (más ancho para el formulario) ---
+const modalStyle = {
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: 600, // Más ancho para el formulario de alumno
+  bgcolor: 'background.paper',
+  border: '2px solid #000',
+  boxShadow: 24,
+  p: 4,
+  borderRadius: 2,
 };
-const inputStyle = { padding: '8px', borderRadius: '4px', border: '1px solid #ccc' };
-const buttonStyle = { padding: '10px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' };
-const toggleButtonStyle = { ...buttonStyle, background: '#28a745', marginBottom: '20px' };
-const errorStyle = { color: 'red', fontSize: '0.9em' };
-
-const actionButtonStyle = {
-  marginLeft: '10px',
-  padding: '5px 10px',
-  border: 'none',
-  borderRadius: '4px',
-  cursor: 'pointer',
-};
-const editButtonStyle = { ...actionButtonStyle, background: '#ffc107', color: 'black' };
-const deleteButtonStyle = { ...actionButtonStyle, background: '#dc3545', color: 'white' };
-const activateButtonStyle = { ...actionButtonStyle, background: '#28a745', color: 'white' };
 // ---
 
 const initialFormState = {
@@ -69,20 +65,17 @@ export default function Alumnos() {
   const [formError, setFormError] = useState(null);
   const [formData, setFormData] = useState(initialFormState);
 
-  // --- Cargar datos ---
+  // --- (Lógica de fetchData - queda igual) ---
   const fetchData = async () => {
     try {
       setLoading(true);
-      // El backend ahora devuelve TODOS los alumnos (activos e inactivos)
       const [alumnosRes, mesasRes] = await Promise.all([
         apiClient.get('/alumnos/'),
-        apiClient.get('/mesas/') // Pedimos solo mesas activas (el backend ya filtra)
+        apiClient.get('/mesas/') 
       ]);
-      
       setAlumnos(alumnosRes.data);
       setMesas(mesasRes.data);
       setError(null);
-      
     } catch (err) {
       console.error("Error al cargar datos:", err);
       setError("No se pudieron cargar los datos de alumnos o mesas.");
@@ -92,10 +85,10 @@ export default function Alumnos() {
   };
 
   useEffect(() => {
-    fetchData(); // Carga inicial
+    fetchData();
   }, []);
 
-  // Recarga solo la lista de alumnos (después de crear/editar/borrar)
+  // --- (Lógica de fetchAlumnosOnly - queda igual) ---
   const fetchAlumnosOnly = async () => {
     try {
       const alumnosRes = await apiClient.get('/alumnos/');
@@ -105,53 +98,41 @@ export default function Alumnos() {
     }
   };
 
-  // --- Manejadores del formulario ---
+  // --- (Lógica de handleInputChange - queda igual) ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    setFormData({ ...formData, [name]: value });
   };
 
+  // --- (Lógica de handleSubmit - queda igual) ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError(null);
-
     if (!formData.nombres || !formData.apellidos || !formData.fecha_nacimiento || !formData.mesa) {
       setFormError("Nombres, apellidos, fecha de nacimiento y mesa son obligatorios.");
       return;
     }
-
     const method = (formMode === 'edit') ? 'patch' : 'post';
     const url = (formMode === 'edit') ? `/alumnos/${editingAlumno.id}/` : '/alumnos/';
-    
-    // Para 'edit', solo enviamos los datos del formulario (incluyendo 'mesa' y 'activo' si lo tuviéramos)
-    // El backend (PATCH) actualizará solo los campos que enviemos.
     const payload = { ...formData };
-    // Aseguramos que 'mesa' sea un número si está presente
     if (payload.mesa) {
       payload.mesa = parseInt(payload.mesa);
     }
-
     try {
       await apiClient[method](url, payload);
       handleCancel();
-      fetchAlumnosOnly(); // Recargamos solo la lista de alumnos
-      
+      fetchAlumnosOnly();
     } catch (err) {
       console.error("Error al guardar alumno:", err);
       setFormError("Error al guardar el alumno.");
     }
   };
-
-  // --- (Manejadores de botones) ---
+  
+  // --- (Lógica de 'handleShow...' y 'handleCancel' - queda igual) ---
   const handleShowCreateForm = () => {
     setFormMode('create');
     setEditingAlumno(null);
     setFormData(initialFormState);
-    
-    // Pre-seleccionar la mesa si solo hay una (para Facilitadores)
     if (mesas.length === 1) {
       setFormData(prev => ({ ...prev, mesa: mesas[0].id }));
     }
@@ -160,7 +141,6 @@ export default function Alumnos() {
   const handleShowEditForm = (alumno) => {
     setFormMode('edit');
     setEditingAlumno(alumno);
-    // Llenamos el formulario con los datos del alumno
     setFormData({
       nombres: alumno.nombres || '',
       apellidos: alumno.apellidos || '',
@@ -169,7 +149,7 @@ export default function Alumnos() {
       colonia: alumno.colonia || '',
       calle: alumno.calle || '',
       numero_casa: alumno.numero_casa || '',
-      mesa: alumno.mesa || '', // El ID de la mesa
+      mesa: alumno.mesa || '',
     });
   };
 
@@ -180,13 +160,12 @@ export default function Alumnos() {
     setFormError(null);
   };
 
-  // --- (Manejadores de Activar/Desactivar) ---
+  // --- (Lógica de 'handleDeactivate' y 'handleActivate' - queda igual) ---
   const handleDeactivate = async (alumnoId) => {
     if (window.confirm("¿Estás seguro de que quieres DESACTIVAR este alumno?")) {
       try {
-        // Usamos DELETE, el backend (perform_destroy) lo intercepta
         await apiClient.delete(`/alumnos/${alumnoId}/`);
-        fetchAlumnosOnly(); // Recargamos solo alumnos
+        fetchAlumnosOnly();
       } catch (err) {
         console.error("Error al desactivar alumno:", err);
         alert("Error al desactivar el alumno.");
@@ -197,9 +176,8 @@ export default function Alumnos() {
   const handleActivate = async (alumnoId) => {
     if (window.confirm("¿Estás seguro de que quieres REACTIVAR este alumno?")) {
       try {
-        // Usamos PATCH para actualizar solo el campo 'activo'
         await apiClient.patch(`/alumnos/${alumnoId}/`, { activo: true });
-        fetchAlumnosOnly(); // Recargamos solo alumnos
+        fetchAlumnosOnly();
       } catch (err) {
         console.error("Error al activar alumno:", err);
         alert("Error al activar el alumno.");
@@ -207,108 +185,191 @@ export default function Alumnos() {
     }
   };
 
-  // --- Renderizado ---
-  if (loading) {
-    return <p>Cargando datos...</p>;
-  }
+  // --- RENDERIZADO (Aquí están los cambios) ---
 
+  if (loading) {
+    return <Typography>Cargando datos...</Typography>;
+  }
   if (error) {
-    return <p style={{ color: 'red' }}>{error}</p>;
+    return <Typography color="error">{error}</Typography>;
   }
 
   return (
-    <div>
-      <h1>🧑‍🎓 Alumnos</h1>
+    <Box>
+      <Typography variant="h4" component="h1" gutterBottom>
+        🧑‍🎓 Alumnos
+      </Typography>
       
       {formMode === 'hidden' && (
-        <button onClick={handleShowCreateForm} style={toggleButtonStyle}>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          startIcon={<AddIcon />} 
+          onClick={handleShowCreateForm}
+          sx={{ mb: 3 }}
+        >
           Añadir Nuevo Alumno
-        </button>
+        </Button>
       )}
 
-      {/* --- Formulario de Creación/Edición --- */}
-      {formMode !== 'hidden' && (
-        <form onSubmit={handleSubmit} style={formStyle}>
-          <h3>{formMode === 'create' ? 'Nuevo Alumno' : `Editando a: ${editingAlumno.nombres}`}</h3>
+      {/* --- Formulario en un Modal --- */}
+      <Modal
+        open={formMode !== 'hidden'}
+        onClose={handleCancel}
+      >
+        <Box sx={modalStyle}>
+          <Typography variant="h5" component="h2">
+            {formMode === 'create' ? 'Nuevo Alumno' : `Editando a: ${editingAlumno ? editingAlumno.nombres : ''}`}
+          </Typography>
           
-          <label htmlFor="mesa">* Mesa Asignada:</label>
-          <select id="mesa" name="mesa" value={formData.mesa} onChange={handleInputChange} style={inputStyle} required>
-            <option value="">-- Selecciona una mesa --</option>
-            {mesas.map(mesa => (
-              <option key={mesa.id} value={mesa.id}>
-                {mesa.nombre_mesa || `Mesa ID: ${mesa.id}`} 
-                {/* CAMBIO AQUÍ: Accedemos a .first_name */}
-                (Fac: {mesa.facilitador ? mesa.facilitador.first_name : 'N/A'})
-              </option>
-            ))}
-          </select>
-          
-          <label htmlFor="nombres">* Nombres:</label>
-          <input id="nombres" type="text" name="nombres" placeholder="Nombres del alumno" value={formData.nombres} onChange={handleInputChange} style={inputStyle} required />
-          
-          <label htmlFor="apellidos">* Apellidos:</label>
-          <input id="apellidos" type="text" name="apellidos" placeholder="Apellidos del alumno" value={formData.apellidos} onChange={handleInputChange} style={inputStyle} required />
-          
-          <label htmlFor="fecha_nacimiento">* Fecha de Nacimiento:</label>
-          <input type="date" name="fecha_nacimiento" id="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleInputChange} style={inputStyle} required />
-          
-          <label htmlFor="telefono">Teléfono:</label>
-          <input id="telefono" type="tel" name="telefono" placeholder="Teléfono" value={formData.telefono} onChange={handleInputChange} style={inputStyle} />
-          
-          <label htmlFor="colonia">Colonia:</label>
-          <input id="colonia" type="text" name="colonia" placeholder="Colonia" value={formData.colonia} onChange={handleInputChange} style={inputStyle} />
-          
-          <label htmlFor="calle">Calle:</label>
-          <input id="calle" type="text" name="calle" placeholder="Calle" value={formData.calle} onChange={handleInputChange} style={inputStyle} />
-          
-          <label htmlFor="numero_casa">Número:</label>
-          <input id="numero_casa" type="text" name="numero_casa" placeholder="Número de casa" value={formData.numero_casa} onChange={handleInputChange} style={inputStyle} />
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2, maxHeight: '70vh', overflowY: 'auto' }}>
+            <Grid container spacing={2}>
+              {/* --- Columna Izquierda --- */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  name="nombres"
+                  label="Nombres"
+                  value={formData.nombres}
+                  onChange={handleInputChange}
+                  fullWidth
+                  margin="normal"
+                  required
+                />
+                <TextField
+                  name="apellidos"
+                  label="Apellidos"
+                  value={formData.apellidos}
+                  onChange={handleInputChange}
+                  fullWidth
+                  margin="normal"
+                  required
+                />
+                <TextField
+                  name="fecha_nacimiento"
+                  label="Fecha de Nacimiento"
+                  type="date"
+                  value={formData.fecha_nacimiento}
+                  onChange={handleInputChange}
+                  fullWidth
+                  margin="normal"
+                  required
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  name="telefono"
+                  label="Teléfono"
+                  type="tel"
+                  value={formData.telefono}
+                  onChange={handleInputChange}
+                  fullWidth
+                  margin="normal"
+                />
+              </Grid>
+              
+              {/* --- Columna Derecha --- */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth margin="normal" required>
+                  <InputLabel id="mesa-select-label">* Mesa Asignada</InputLabel>
+                  <Select
+                    labelId="mesa-select-label"
+                    id="mesa"
+                    name="mesa"
+                    label="* Mesa Asignada"
+                    value={formData.mesa}
+                    onChange={handleInputChange}
+                  >
+                    <MenuItem value="">-- Selecciona una mesa --</MenuItem>
+                    {mesas.map(mesa => (
+                      <MenuItem key={mesa.id} value={mesa.id}>
+                        {mesa.nombre_mesa || `Mesa ID: ${mesa.id}`} (Fac: {mesa.facilitador ? mesa.facilitador.first_name : 'N/A'})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                
+                <TextField
+                  name="colonia"
+                  label="Colonia"
+                  value={formData.colonia}
+                  onChange={handleInputChange}
+                  fullWidth
+                  margin="normal"
+                />
+                <TextField
+                  name="calle"
+                  label="Calle"
+                  value={formData.calle}
+                  onChange={handleInputChange}
+                  fullWidth
+                  margin="normal"
+                />
+                <TextField
+                  name="numero_casa"
+                  label="Número"
+                  value={formData.numero_casa}
+                  onChange={handleInputChange}
+                  fullWidth
+                  margin="normal"
+                />
+              </Grid>
+            </Grid>
 
-          {formError && <p style={errorStyle}>{formError}</p>}
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button type="button" onClick={handleCancel} style={{...buttonStyle, background: '#6c757d'}}>Cancelar</button>
-            <button type="submit" style={buttonStyle}>
-              {formMode === 'create' ? 'Crear Alumno' : 'Guardar Cambios'}
-            </button>
-          </div>
-        </form>
-      )}
+            {formError && <Typography color="error" sx={{ mt: 2 }}>{formError}</Typography>}
+            
+            <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
+              <Button variant="outlined" onClick={handleCancel}>
+                Cancelar
+              </Button>
+              <Button variant="contained" type="submit">
+                {formMode === 'create' ? 'Crear Alumno' : 'Guardar Cambios'}
+              </Button>
+            </Stack>
+          </Box>
+        </Box>
+      </Modal>
 
-      <hr />
-
-      {/* --- Lista de Alumnos --- */}
-      {alumnos.length === 0 ? (
-        <p>No hay alumnos registrados.</p>
-      ) : (
-        <div>
-          {alumnos.map((alumno) => (
-            <div key={alumno.id} style={alumno.activo ? cardStyle : inactiveCardStyle}>
-              <div>
-                <strong>{alumno.nombres} {alumno.apellidos}</strong>
-                {!alumno.activo && <strong style={{ color: 'red', marginLeft: '10px' }}>(INACTIVO)</strong>}
-                <br />
-                <small>Teléfono: {alumno.telefono || 'No especificado'}</small>
-              </div>
-              <div>
+      {/* --- Lista de Alumnos con MUI Cards --- */}
+      <Stack spacing={2}>
+        {alumnos.length === 0 ? (
+          <Typography>No hay alumnos registrados.</Typography>
+        ) : (
+          alumnos.map((alumno) => (
+            <Card key={alumno.id} variant="outlined" sx={{ opacity: alumno.activo ? 1 : 0.6 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="h5" component="div">
+                    {alumno.nombres} {alumno.apellidos}
+                  </Typography>
+                  {alumno.activo ? 
+                    <Chip label="Activo" color="success" size="small" /> :
+                    <Chip label="Inactivo" color="default" size="small" />
+                  }
+                </Box>
+                <Typography variant="body2" color="text.secondary">
+                  Teléfono: {alumno.telefono || 'No especificado'}
+                </Typography>
+              </CardContent>
+              
+              <CardActions sx={{ justifyContent: 'flex-end' }}>
                 {alumno.activo ? (
                   <>
-                    <button onClick={() => handleShowEditForm(alumno)} style={editButtonStyle}>
+                    <Button size="small" variant="outlined" color="warning" startIcon={<EditIcon />} onClick={() => handleShowEditForm(alumno)}>
                       Editar
-                    </button>
-                    <button onClick={() => handleDeactivate(alumno.id)} style={deleteButtonStyle}>
+                    </Button>
+                    <Button size="small" variant="outlined" color="error" startIcon={<DoNotDisturbOnIcon />} onClick={() => handleDeactivate(alumno.id)}>
                       Desactivar
-                    </button>
+                    </Button>
                   </>
                 ) : (
-                  <button onClick={() => handleActivate(alumno.id)} style={activateButtonStyle}>
+                  <Button size="small" variant="outlined" color="success" startIcon={<PowerSettingsNewIcon />} onClick={() => handleActivate(alumno.id)}>
                     Activar
-                  </button>
+                  </Button>
                 )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+              </CardActions>
+            </Card>
+          ))
+        )}
+      </Stack>
+    </Box>
   );
 }

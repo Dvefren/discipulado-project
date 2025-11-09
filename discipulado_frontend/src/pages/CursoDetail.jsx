@@ -1,47 +1,56 @@
 // En src/pages/CursoDetail.jsx
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import apiClient from '../services/api';
 
-// --- (Estilos) ---
-const formStyle = { display: 'flex', flexDirection: 'column', gap: '10px', padding: '20px', background: '#f9f9f9', borderRadius: '8px', marginBottom: '20px' };
-const inputStyle = { padding: '8px', borderRadius: '4px', border: '1px solid #ccc' };
-const buttonStyle = { padding: '10px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' };
-const errorStyle = { color: 'red', fontSize: '0.9em' };
-const cardStyle = { 
-  background: '#fff', 
-  border: '1px solid #ddd', 
-  padding: '15px', 
-  marginBottom: '10px', 
-  borderRadius: '8px',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  transition: 'all 0.3s ease',
+// --- Importaciones de MUI ---
+import {
+  Box,
+  Button, // Ya lo estábamos importando
+  Card,
+  CardContent,
+  CardActions,
+  Typography,
+  Modal,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Stack,
+  Link, // Lo dejamos por si acaso, aunque el botón lo reemplaza
+  Chip,
+} from '@mui/material';
+
+// --- Importaciones de Iconos ---
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
+import DoNotDisturbOnIcon from '@mui/icons-material/DoNotDisturbOn';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'; // <-- NUEVO ÍCONO
+// ---
+
+// --- (Estilo de Modal - queda igual) ---
+const modalStyle = {
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: 400,
+  bgcolor: 'background.paper',
+  border: '2px solid #000',
+  boxShadow: 24,
+  p: 4,
+  borderRadius: 2,
 };
-const inactiveCardStyle = {
-  ...cardStyle,
-  background: '#f8f9fa',
-  opacity: 0.7,
-};
-const actionButtonStyle = {
-  marginLeft: '10px',
-  padding: '5px 10px',
-  border: 'none',
-  borderRadius: '4px',
-  cursor: 'pointer',
-};
-const editButtonStyle = { ...actionButtonStyle, background: '#ffc107', color: 'black' };
-const deleteButtonStyle = { ...actionButtonStyle, background: '#dc3545', color: 'white' };
-const activateButtonStyle = { ...actionButtonStyle, background: '#28a745', color: 'white' };
 // ---
 
 const initialFormState = {
   dia: 'MIE',
   hora: '19:00',
   curso: null,
-  activo: true, // El formulario ahora debe saber sobre 'activo'
+  activo: true,
 };
 
 export default function CursoDetail() {
@@ -53,26 +62,24 @@ export default function CursoDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // --- Estados para el formulario ---
-  const [formMode, setFormMode] = useState('hidden'); // 'hidden', 'create', 'edit'
+  const [formMode, setFormMode] = useState('hidden');
   const [editingHorario, setEditingHorario] = useState(null);
   const [formData, setFormData] = useState(initialFormState);
   const [formError, setFormError] = useState(null);
 
-  // --- Cargar datos ---
+  // --- (TODA LA LÓGICA DE 'fetchData', 'handleSubmit', 'handle...Click'
+  // ... QUEDA EXACTAMENTE IGUAL QUE ANTES) ---
+
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-      // El backend ahora devuelve TODOS los horarios (activos e inactivos)
       const [cursoRes, horariosRes] = await Promise.all([
         apiClient.get(`/cursos/${cursoId}/`),
         apiClient.get(`/horarios/?curso=${cursoId}`)
       ]);
-      
       setCurso(cursoRes.data);
       setHorarios(horariosRes.data);
-      
       setFormData(prev => ({ ...initialFormState, curso: cursoId }));
     } catch (err) {
       console.error("Error al cargar datos del curso:", err);
@@ -86,7 +93,6 @@ export default function CursoDetail() {
     fetchData();
   }, [cursoId]);
 
-  // --- Manejadores del formulario ---
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData({
@@ -98,31 +104,28 @@ export default function CursoDetail() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError(null);
-
     const method = (formMode === 'edit') ? 'patch' : 'post';
     const url = (formMode === 'edit') ? `/horarios/${editingHorario.id}/` : '/horarios/';
-
     try {
       await apiClient[method](url, formData);
       handleCancel();
-      fetchData(); // Recargamos todo
+      fetchData();
     } catch (err) {
       console.error("Error al guardar horario:", err);
       setFormError("Error al guardar el horario.");
     }
   };
 
-  // --- (Manejadores de botones) ---
   const handleShowCreateForm = () => {
     setFormMode('create');
     setEditingHorario(null);
-    setFormData({ ...initialFormState, curso: cursoId }); // Limpia el formulario
+    setFormData({ ...initialFormState, curso: cursoId });
   };
 
   const handleShowEditForm = (horario) => {
     setFormMode('edit');
     setEditingHorario(horario);
-    setFormData(horario); // Llena el formulario con los datos del horario
+    setFormData(horario);
   };
 
   const handleCancel = () => {
@@ -136,7 +139,7 @@ export default function CursoDetail() {
     if (window.confirm("¿Estás seguro de que quieres DESACTIVAR este horario? (Esto desactivará también sus mesas y alumnos)")) {
       try {
         await apiClient.patch(`/horarios/${horarioId}/`, { activo: false });
-        fetchData(); // Recargamos para ver el cambio de estado
+        fetchData();
       } catch (err) {
         console.error("Error al desactivar horario:", err);
         alert("Error al desactivar el horario.");
@@ -148,104 +151,146 @@ export default function CursoDetail() {
     if (window.confirm("¿Estás seguro de que quieres REACTIVAR este horario?")) {
       try {
         await apiClient.patch(`/horarios/${horarioId}/`, { activo: true });
-        fetchData(); // Recargamos para ver el cambio de estado
+        fetchData();
       } catch (err) {
         console.error("Error al activar horario:", err);
         alert("Error al activar el horario.");
       }
     }
   };
-
-  // --- Renderizado ---
-  if (loading) return <p>Cargando curso...</p>;
-  if (error) return <p style={{ color: 'red' }}>{error}</p>;
-  if (!curso) return <p>Curso no encontrado.</p>;
+  
+  // --- RENDERIZADO ---
+  if (loading) return <Typography>Cargando curso...</Typography>;
+  if (error) return <Typography color="error">{error}</Typography>;
+  if (!curso) return <Typography>Curso no encontrado.</Typography>;
 
   return (
-    <div>
-      <Link to="/cursos">&larr; Volver a todos los cursos</Link>
+    <Box>
+      {/* --- CAMBIO AQUÍ: Botón de Volver --- */}
+      <Button
+        component={RouterLink}
+        to="/cursos"
+        variant="outlined"
+        startIcon={<ArrowBackIcon />}
+        sx={{ mb: 2 }} // mb: 2 es "margin-bottom: 2"
+      >
+        Volver a Cursos
+      </Button>
+      {/* --- FIN DEL CAMBIO --- */}
       
-      <h1>Gestión de: {curso.nombre}</h1>
-      <p>Aquí puedes administrar los horarios para este curso.</p>
+      <Typography variant="h4" component="h1" gutterBottom>
+        Gestión de: {curso.nombre}
+      </Typography>
+      {/* (Aquí es donde estaba el <Typography> vacío que quitaste) */}
 
-      {/* --- Formulario de Creación/Edición --- */}
+      {/* ... (Todo el resto del código: formulario en Modal, lista de Horarios, etc. 
+           queda exactamente igual que en la versión anterior) ... */}
+      
       {formMode === 'hidden' && (
-        <button onClick={handleShowCreateForm} style={{...buttonStyle, background: '#28a745', marginBottom: '20px'}}>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          startIcon={<AddIcon />} 
+          onClick={handleShowCreateForm}
+          sx={{ mb: 3 }}
+        >
           Añadir Nuevo Horario
-        </button>
+        </Button>
       )}
 
-      {formMode !== 'hidden' && (
-        <form onSubmit={handleSubmit} style={formStyle}>
-          <h3>{formMode === 'create' ? 'Nuevo Horario' : 'Editando Horario'}</h3>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <div>
-              <label htmlFor="dia">Día:</label>
-              <select id="dia" name="dia" value={formData.dia} onChange={handleInputChange} style={inputStyle}>
-                <option value="MIE">Miércoles</option>
-                <option value="DOM">Domingo</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="hora">Hora (HH:MM):</label>
-              <input type="time" id="hora" name="hora" value={formData.hora} onChange={handleInputChange} style={inputStyle} />
-            </div>
-            {/* Solo mostramos el checkbox 'activo' al editar */}
-            {formMode === 'edit' && (
-              <div>
-                <input type="checkbox" name="activo" id="activo" checked={formData.activo} onChange={handleInputChange} />
-                <label htmlFor="activo" style={{ marginLeft: '5px' }}>¿Activo?</label>
-              </div>
-            )}
-          </div>
-          {formError && <p style={errorStyle}>{formError}</p>}
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button type="button" onClick={handleCancel} style={{...buttonStyle, background: '#6c757d'}}>Cancelar</button>
-            <button type="submit" style={buttonStyle}>
-              {formMode === 'create' ? 'Crear Horario' : 'Guardar Cambios'}
-            </button>
-          </div>
-        </form>
-      )}
+      <Modal open={formMode !== 'hidden'} onClose={handleCancel}>
+        <Box sx={modalStyle}>
+          <Typography variant="h5" component="h2">
+            {formMode === 'create' ? 'Nuevo Horario' : 'Editando Horario'}
+          </Typography>
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            <Stack spacing={2}>
+              <FormControl fullWidth>
+                <InputLabel id="dia-select-label">Día</InputLabel>
+                <Select
+                  labelId="dia-select-label"
+                  id="dia"
+                  name="dia"
+                  label="Día"
+                  value={formData.dia}
+                  onChange={handleInputChange}
+                >
+                  <MenuItem value="MIE">Miércoles</MenuItem>
+                  <MenuItem value="DOM">Domingo</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                name="hora"
+                label="Hora"
+                type="time"
+                value={formData.hora}
+                onChange={handleInputChange}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+              {formMode === 'edit' && (
+                <FormControlLabel
+                  control={<Checkbox name="activo" checked={formData.activo} onChange={handleInputChange} />}
+                  label="¿Activo?"
+                />
+              )}
+            </Stack>
+            {formError && <Typography color="error" sx={{ mt: 2 }}>{formError}</Typography>}
+            <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
+              <Button variant="outlined" onClick={handleCancel}>Cancelar</Button>
+              <Button variant="contained" type="submit">
+                {formMode === 'create' ? 'Crear Horario' : 'Guardar Cambios'}
+              </Button>
+            </Stack>
+          </Box>
+        </Box>
+      </Modal>
 
-      <hr />
+      <hr style={{ margin: '20px 0' }} />
 
-      {/* --- Lista de Horarios Existentes --- */}
-      <h2>Horarios de este Curso</h2>
+      <Typography variant="h5" component="h2" gutterBottom>
+        Horarios de este Curso
+      </Typography>
+      
       {horarios.length === 0 ? (
-        <p>No hay horarios registrados para este curso.</p>
+        <Typography>No hay horarios registrados para este curso.</Typography>
       ) : (
-        <div>
+        <Stack spacing={2}>
           {horarios.map(horario => (
-            <div key={horario.id} style={horario.activo ? cardStyle : inactiveCardStyle}>
-              {/* Información del Horario (ahora es un Link) */}
-              <Link to={`/horarios/${horario.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <strong>Día: {horario.dia === 'MIE' ? 'Miércoles' : 'Domingo'}</strong>
-                <p>Hora: {horario.hora}</p>
-                {!horario.activo && <strong style={{ color: 'red' }}>(INACTIVO)</strong>}
-              </Link>
-              
-              {/* Botones de Acción */}
-              <div>
+            <Card key={horario.id} variant="outlined" sx={{ opacity: horario.activo ? 1 : 0.6 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <RouterLink to={`/horarios/${horario.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <Typography variant="h6">
+                      {horario.dia === 'MIE' ? 'Miércoles' : 'Domingo'} - {horario.hora}
+                    </Typography>
+                  </RouterLink>
+                  {horario.activo ? 
+                    <Chip label="Activo" color="success" size="small" /> :
+                    <Chip label="Inactivo" color="default" size="small" />
+                  }
+                </Box>
+              </CardContent>
+              <CardActions sx={{ justifyContent: 'flex-end' }}>
                 {horario.activo ? (
                   <>
-                    <button onClick={() => handleShowEditForm(horario)} style={editButtonStyle}>
+                    <Button size="small" variant="outlined" color="warning" startIcon={<EditIcon />} onClick={() => handleShowEditForm(horario)}>
                       Editar
-                    </button>
-                    <button onClick={() => handleDeactivate(horario.id)} style={deleteButtonStyle}>
+                    </Button>
+                    <Button size="small" variant="outlined" color="error" startIcon={<DoNotDisturbOnIcon />} onClick={() => handleDeactivate(horario.id)}>
                       Desactivar
-                    </button>
+                    </Button>
                   </>
                 ) : (
-                  <button onClick={() => handleActivate(horario.id)} style={activateButtonStyle}>
+                  <Button size="small" variant="outlined" color="success" startIcon={<PowerSettingsNewIcon />} onClick={() => handleActivate(horario.id)}>
                     Activar
-                  </button>
+                  </Button>
                 )}
-              </div>
-            </div>
+              </CardActions>
+            </Card>
           ))}
-        </div>
+        </Stack>
       )}
-    </div>
+    </Box>
   );
 }

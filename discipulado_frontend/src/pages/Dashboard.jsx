@@ -1,5 +1,4 @@
 // En src/pages/Dashboard.jsx
-
 import React, { useState, useEffect } from 'react';
 import apiClient from '../services/api';
 import { Bar, Doughnut } from 'react-chartjs-2';
@@ -14,7 +13,20 @@ import {
   Legend,
 } from 'chart.js';
 
-// Registrar los componentes de Chart.js
+// --- NUEVO: Importaciones de MUI ---
+import {
+  Box,
+  Typography,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Paper, // Usaremos Paper para los contenedores de gráficas
+  Grid, // Para organizar las gráficas
+} from '@mui/material';
+// ---
+
+// (Registrar Chart.js - queda igual)
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -25,24 +37,7 @@ ChartJS.register(
   Legend
 );
 
-// (Estilos)
-const dashboardContainerStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
-  gap: '20px',
-};
-const chartBoxStyle = {
-  background: '#fff',
-  border: '1px solid #ddd',
-  padding: '20px',
-  borderRadius: '8px',
-  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-  minHeight: '400px', 
-  maxHeight: '500px',
-};
-const selectStyle = { padding: '8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '1em', marginBottom: '20px' };
-
-// (Lista de Clases)
+// (Lista de Clases - queda igual)
 const CLASES = [
   "Introduccion", "El comienzo de una vida en Cristo", "El arrepentimiento",
   "La Fe", "El Perdon", "La Obediencia", "La Familia", "El Espiritu Santo",
@@ -51,7 +46,7 @@ const CLASES = [
   "La Vieja Naturaleza", "El Mundo", "Dios", "Guiados por Dios", "Resumen General"
 ];
 
-// Opciones para la gráfica apilada
+// (Opciones de gráficas - quedan igual)
 const stackedBarOptions = {
   maintainAspectRatio: false,
   scales: {
@@ -60,13 +55,17 @@ const stackedBarOptions = {
   },
 };
 
+const doughnutOptions = {
+  maintainAspectRatio: false,
+};
+
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [numeroClase, setNumeroClase] = useState(1);
 
-  // --- Cargar datos ---
+  // --- (Lógica de fetchStats - queda igual) ---
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -82,22 +81,16 @@ export default function Dashboard() {
       }
     };
     fetchStats();
-  }, [numeroClase]); // Se recarga cada vez que 'numeroClase' cambia
+  }, [numeroClase]);
 
-  // --- Funciones para preparar los datos de las gráficas ---
+  // --- (Toda la lógica de getConteoGeneralData, getFaltasHorarioData,
+  // y getDetalleMesaData queda EXACTAMENTE IGUAL que antes) ---
   
-  // Gráfica de Donut (Asistencia General)
   const getConteoGeneralData = () => {
-    // Guardia de seguridad:
     if (!stats || !stats.conteo_general) return { labels: [], datasets: [] };
-
     const labels = { 'A': 'Asistió', 'F': 'Faltó', 'R': 'Recuperó', 'D': 'Adelantó' };
     const data = { 'A': 0, 'F': 0, 'R': 0, 'D': 0 };
-
-    stats.conteo_general.forEach(item => {
-      data[item.estado] = item.total;
-    });
-
+    stats.conteo_general.forEach(item => { data[item.estado] = item.total; });
     return {
       labels: Object.values(labels),
       datasets: [{
@@ -107,16 +100,12 @@ export default function Dashboard() {
     };
   };
 
-  // Gráfica de Barras (Faltas por Horario)
   const getFaltasHorarioData = () => {
-    // Guardia de seguridad:
     if (!stats || !stats.faltas_por_horario) return { labels: [], datasets: [] };
-    
     const labels = stats.faltas_por_horario.map(item => 
       `${item.alumno__mesa__horario__dia === 'MIE' ? 'Mié' : 'Dom'} ${item.alumno__mesa__horario__hora}`
     );
     const data = stats.faltas_por_horario.map(item => item.total_faltas);
-
     return {
       labels,
       datasets: [{
@@ -127,50 +116,30 @@ export default function Dashboard() {
     };
   };
 
-  // Gráfica de Barras Apiladas (Asistencia Detallada por Mesa)
   const getDetalleMesaData = () => {
-    // Guardia de seguridad:
     if (!stats || !stats.detalle_por_mesa) return { labels: [], datasets: [] };
-    
     const rawData = stats.detalle_por_mesa;
-    
-    // 1. Encontrar todas las mesas únicas (labels)
-    const mesas = {}; // { mesaId: "Nombre Mesa", ... }
+    const mesas = {};
     rawData.forEach(item => {
       const mesaNombre = item.alumno__mesa__nombre_mesa || `Mesa de ${item.alumno__mesa__facilitador__first_name}`;
       mesas[item.alumno__mesa_id] = mesaNombre;
     });
-
-    const labels = Object.values(mesas); // ["Mesa 1", "Mesa 2"]
-    const mesaIds = Object.keys(mesas);   // ["1", "2"]
-
-    // 2. Preparar los 4 datasets (Asistió, Faltó, Recuperó, Adelantó)
+    const labels = Object.values(mesas);
+    const mesaIds = Object.keys(mesas);
     const dataA = new Array(labels.length).fill(0);
     const dataF = new Array(labels.length).fill(0);
     const dataR = new Array(labels.length).fill(0);
     const dataD = new Array(labels.length).fill(0);
-
-    // 3. Llenar los datasets con los datos del backend
     rawData.forEach(item => {
       const mesaIndex = mesaIds.indexOf(item.alumno__mesa_id.toString());
       if (mesaIndex === -1) return;
-
       switch (item.estado) {
-        case 'A':
-          dataA[mesaIndex] = item.total;
-          break;
-        case 'F':
-          dataF[mesaIndex] = item.total;
-          break;
-        case 'R':
-          dataR[mesaIndex] = item.total;
-          break;
-        case 'D':
-          dataD[mesaIndex] = item.total;
-          break;
+        case 'A': dataA[mesaIndex] = item.total; break;
+        case 'F': dataF[mesaIndex] = item.total; break;
+        case 'R': dataR[mesaIndex] = item.total; break;
+        case 'D': dataD[mesaIndex] = item.total; break;
       }
     });
-
     return {
       labels,
       datasets: [
@@ -181,68 +150,82 @@ export default function Dashboard() {
       ],
     };
   };
-  // ---
 
-  // --- Renderizado ---
+  // --- RENDERIZADO (Aquí están los cambios) ---
   return (
-    <div>
-      <h1>📊 Inicio (Dashboard)</h1>
+    <Box>
+      <Typography variant="h4" component="h1" gutterBottom>
+        📊 Inicio (Dashboard)
+      </Typography>
       
-      {/* --- Selector de Clase --- */}
-      <div>
-        <label htmlFor="numeroClase" style={{ display: 'block', marginBottom: '5px' }}>Selecciona la Clase:</label>
-        <select
-          id="numeroClase"
+      {/* --- Selector de Clase con MUI --- */}
+      <FormControl sx={{ mb: 3, minWidth: 400 }}>
+        <InputLabel id="clase-select-label">Selecciona la Clase</InputLabel>
+        <Select
+          labelId="clase-select-label"
+          id="clase-select"
           value={numeroClase}
+          label="Selecciona la Clase"
           onChange={(e) => setNumeroClase(Number(e.target.value))}
-          style={selectStyle}
         >
           {CLASES.map((nombre, index) => (
-            <option key={index} value={index + 1}>
+            <MenuItem key={index} value={index + 1}>
               Clase {index + 1}: {nombre}
-            </option>
+            </MenuItem>
           ))}
-        </select>
-      </div>
+        </Select>
+      </FormControl>
 
-      {/* --- Contenedor de Gráficas --- */}
-      {loading && <p>Cargando estadísticas...</p>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {/* --- Contenedor de Gráficas con MUI Grid --- */}
+      {loading && <Typography>Cargando estadísticas...</Typography>}
+      {error && <Typography color="error">{error}</Typography>}
       
       {stats && (
-        <div style={dashboardContainerStyle}>
+        <Grid container spacing={3}>
           
           {/* Gráfica 1: Conteo General */}
-          <div style={chartBoxStyle}>
-            <h3>Asistencia General (Clase {numeroClase})</h3>
-            <Doughnut 
-              data={getConteoGeneralData()} 
-              options={{ maintainAspectRatio: false }}
-            />
-          </div>
+          <Grid item xs={12} md={6} lg={4}>
+            <Paper sx={{ p: 2, height: '400px' }}>
+              <Typography variant="h6">Asistencia General (Clase {numeroClase})</Typography>
+              <Box sx={{ height: 'calc(100% - 30px)' }}> {/* Box para controlar altura */}
+                <Doughnut 
+                  data={getConteoGeneralData()} 
+                  options={doughnutOptions}
+                />
+              </Box>
+            </Paper>
+          </Grid>
 
           {/* Gráfica 2: Faltas por Horario */}
-          <div style={chartBoxStyle}>
-            <h3>Faltas por Horario (Clase {numeroClase})</h3>
-            <Bar 
-              data={getFaltasHorarioData()} 
-              options={{ maintainAspectRatio: false }}
-            />
-          </div>
+          <Grid item xs={12} md={6} lg={4}>
+            <Paper sx={{ p: 2, height: '400px' }}>
+              <Typography variant="h6">Faltas por Horario (Clase {numeroClase})</Typography>
+              <Box sx={{ height: 'calc(100% - 30px)' }}>
+                <Bar 
+                  data={getFaltasHorarioData()} 
+                  options={{ maintainAspectRatio: false }}
+                />
+              </Box>
+            </Paper>
+          </Grid>
 
           {/* Gráfica 3 (Detalle por Mesa) */}
           {stats.detalle_por_mesa && stats.detalle_por_mesa.length > 0 && (
-            <div style={chartBoxStyle}>
-              <h3>Asistencia Detallada por Mesa</h3>
-              <Bar 
-                data={getDetalleMesaData()}
-                options={stackedBarOptions}
-              />
-            </div>
+            <Grid item xs={12} lg={4}>
+              <Paper sx={{ p: 2, height: '400px' }}>
+                <Typography variant="h6">Asistencia Detallada por Mesa</Typography>
+                <Box sx={{ height: 'calc(100% - 30px)' }}>
+                  <Bar 
+                    data={getDetalleMesaData()}
+                    options={stackedBarOptions}
+                  />
+                </Box>
+              </Paper>
+            </Grid>
           )}
 
-        </div>
+        </Grid>
       )}
-    </div>
+    </Box>
   );
 }

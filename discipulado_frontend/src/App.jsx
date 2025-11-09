@@ -4,32 +4,27 @@ import { Routes, Route } from 'react-router-dom';
 
 // Layout
 import MainLayout from './layout/MainLayout';
-import ProtectedRoute from './router/ProtectedRoute'; // <-- 1. Importar el guardia
+import ProtectedRoute from './router/ProtectedRoute';
 
 // Páginas
 import Dashboard from './pages/Dashboard';
 import Cursos from './pages/Cursos';
+import CursoDetail from './pages/CursoDetail';
+import HorarioDetail from './pages/HorarioDetail';
 import Asistencia from './pages/Asistencia';
 import Alumnos from './pages/Alumnos';
 import Facilitadores from './pages/Facilitadores';
 import Calendario from './pages/Calendario';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
-import CursoDetail from './pages/CursoDetail';
-import HorarioDetail from './pages/HorarioDetail';
 
 function App() {
   return (
+    // ¡Sin <Box> ni estilos aquí! MUI se encarga de todo.
     <Routes>
-      {/* RUTAS PÚBLICAS (ej. Login) */}
       <Route path="/login" element={<Login />} />
 
-      {/* RUTAS PRIVADAS (requieren estar logueado) */}
-      
-      {/* 2. Envolvemos las rutas privadas con el "Guardia" */}
       <Route element={<ProtectedRoute />}>
-        
-        {/* Todas las rutas aquí dentro solo serán visibles si estás logueado */}
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="cursos" element={<Cursos />} />
@@ -40,10 +35,8 @@ function App() {
           <Route path="facilitadores" element={<Facilitadores />} />
           <Route path="calendario" element={<Calendario />} />
         </Route>
-        
       </Route>
       
-      {/* Ruta para cualquier otra cosa */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

@@ -3,62 +3,55 @@ import React, { useState, useEffect } from 'react';
 import apiClient from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-// --- (Estilos) ---
-const formContainerStyle = { background: '#f9f9f9', padding: '20px', borderRadius: '8px', marginBottom: '20px' };
-const listStyle = { listStyle: 'none', padding: 0 };
-const studentRowStyle = {
-  display: 'flex',
-  flexDirection: 'column', // <-- CAMBIO: Apilado vertical
-  padding: '15px',
-  borderBottom: '1px solid #eee',
-  gap: '10px', // Espacio entre elementos
-};
-const studentHeaderStyle = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-};
-const selectStyle = { padding: '5px', borderRadius: '4px', border: '1px solid #ccc', width: '200px' };
-const inputStyle = { padding: '5px', borderRadius: '4px', border: '1px solid #ccc', width: '100%', boxSizing: 'border-box' }; // <-- NUEVO
-const buttonStyle = { padding: '10px 20px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '1em' };
+// --- NUEVO: Importaciones de MUI ---
+import {
+  Box,
+  Button,
+  Typography,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Paper, // Usaremos Paper para cada fila
+  Stack,
+  TextField,
+  Grid,
+  Autocomplete,
+} from '@mui/material';
 // ---
 
-// --- (Lista de Clases queda igual) ---
-const CLASES = [ "Introduccion", "El comienzo de una vida en Cristo", /* ... */ "Resumen General" ];
+// (Lista de Clases - queda igual)
+const CLASES = [
+  "Introduccion", "El comienzo de una vida en Cristo", "El arrepentimiento",
+  "La Fe", "El Perdon", "La Obediencia", "La Familia", "El Espiritu Santo",
+  "La Biblia", "La Oracion y el Ayuno", "El Bautismo", "La Santa Cena",
+  "Compartir el Mensaje", "La Mayordomia", "La Iglesia", "Satanas",
+  "La Vieja Naturaleza", "El Mundo", "Dios", "Guiados por Dios", "Resumen General"
+];
 // ---
 
 export default function Asistencia() {
   const { user } = useAuth();
   const [alumnos, setAlumnos] = useState([]);
-  const [horarios, setHorarios] = useState([]); // <-- NUEVO: Para el desplegable de "Adelantó"
+  const [horarios, setHorarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [numeroClase, setNumeroClase] = useState(1);
-  
-  // --- CAMBIO: Estado de Asistencia más complejo ---
-  // Ahora es un objeto que guarda objetos
-  // { alumnoId: { estado: 'A', motivo: '', horarioAdelanto: null }, ... }
   const [asistenciaEstado, setAsistenciaEstado] = useState({});
-  // ---
 
-  // --- Cargar Alumnos, Horarios y Asistencias Previas ---
+  // --- (Lógica de fetchData - queda igual) ---
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-
-      // 1. Pedimos alumnos, asistencias previas, y TODOS los horarios activos
       const [alumnosRes, asistenciaRes, horariosRes] = await Promise.all([
         apiClient.get('/alumnos/'),
         apiClient.get(`/asistencias/?numero_clase=${numeroClase}`),
-        apiClient.get('/horarios/') // <-- NUEVO: Pedimos horarios activos
+        apiClient.get('/horarios/')
       ]);
-      
       setAlumnos(alumnosRes.data);
-      setHorarios(horariosRes.data); // <-- NUEVO: Guardamos horarios
-
-      // 3. Pre-poblamos el estado complejo
+      setHorarios(horariosRes.data);
       const estadoInicial = {};
       alumnosRes.data.forEach(alumno => {
         const registro = asistenciaRes.data.find(a => a.alumno === alumno.id);
@@ -66,14 +59,13 @@ export default function Asistencia() {
           estadoInicial[alumno.id] = {
             estado: registro.estado,
             motivo: registro.motivo_falta_recupero || '',
-            horarioAdelanto: registro.horario_adelanto || null, // Guardamos el ID
+            horarioAdelanto: registro.horario_adelanto || null,
           };
         } else {
           estadoInicial[alumno.id] = { estado: '', motivo: '', horarioAdelanto: null };
         }
       });
       setAsistenciaEstado(estadoInicial);
-
     } catch (err) {
       console.error("Error al cargar datos:", err);
       setError("No se pudieron cargar los datos.");
@@ -86,40 +78,28 @@ export default function Asistencia() {
     if (user) {
       fetchData();
     }
-  }, [numeroClase, user]); // Se recarga si cambia la clase
+  }, [numeroClase, user]);
 
-  // --- Manejadores ---
-
-  // --- CAMBIO: Un solo manejador para todos los campos ---
+  // --- (Lógica de handleAsistenciaChange - queda igual) ---
   const handleAsistenciaChange = (alumnoId, campo, valor) => {
     setAsistenciaEstado(prev => {
       const newState = { ...prev[alumnoId], [campo]: valor };
-
-      // Lógica de limpieza:
-      // Si el estado NO es F o R, borramos el motivo
       if (campo === 'estado' && valor !== 'F' && valor !== 'R') {
         newState.motivo = '';
       }
-      // Si el estado NO es D, borramos el horario
       if (campo === 'estado' && valor !== 'D') {
         newState.horarioAdelanto = null;
       }
-      
-      return {
-        ...prev,
-        [alumnoId]: newState,
-      };
+      return { ...prev, [alumnoId]: newState };
     });
   };
-  // ---
 
+  // --- (Lógica de handleSubmit - queda igual) ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-
-    // 1. Convertir nuestro estado complejo en el payload
     const payload = Object.keys(asistenciaEstado)
-      .filter(alumnoId => asistenciaEstado[alumnoId].estado !== '') // Solo los que tienen estado
+      .filter(alumnoId => asistenciaEstado[alumnoId].estado !== '')
       .map(alumnoId => {
         const estado = asistenciaEstado[alumnoId];
         return {
@@ -127,119 +107,141 @@ export default function Asistencia() {
           numero_clase: numeroClase,
           estado: estado.estado,
           motivo_falta_recupero: (estado.estado === 'F' || estado.estado === 'R') ? estado.motivo : null,
-          horario_adelanto: (estado.estado === 'D') ? parseInt(estado.horarioAdelanto) : null,
+          horario_adelanto: (estado.estado === 'D' && estado.horarioAdelanto) ? parseInt(estado.horarioAdelanto) : null,
         };
       });
-
     if (payload.length === 0) {
       setError("No hay asistencias para guardar.");
       return;
     }
-
     try {
       await apiClient.post('/asistencias/bulk_upsert/', payload);
       alert('¡Asistencia guardada con éxito!');
-      
     } catch (err) {
       console.error("Error al guardar asistencia:", err);
       setError("Error al guardar la asistencia.");
     }
   };
 
-  // --- Renderizado ---
-
+  // --- RENDERIZADO (Aquí están los cambios) ---
   return (
-    <div>
-      <h1>✅ Asistencia</h1>
+    <Box>
+      <Typography variant="h4" component="h1" gutterBottom>
+        ✅ Asistencia
+      </Typography>
       
-      <form onSubmit={handleSubmit} style={formContainerStyle}>
-        {/* ... (Selector de Clase queda igual) ... */}
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-          <div>
-            <label htmlFor="numeroClase" style={{ display: 'block', marginBottom: '5px' }}>Selecciona la Clase:</label>
-            <select
-              id="numeroClase"
-              value={numeroClase}
-              onChange={(e) => setNumeroClase(Number(e.target.value))}
-              style={{...selectStyle, width: '400px'}}
-            >
-              {CLASES.map((nombre, index) => (
-                <option key={index} value={index + 1}>
-                  Clase {index + 1}: {nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+      <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+        {/* --- Selector de Clase con MUI --- */}
+        <FormControl sx={{ mb: 3, minWidth: 400 }}>
+          <InputLabel id="clase-select-label">Selecciona la Clase</InputLabel>
+          <Select
+            labelId="clase-select-label"
+            id="clase-select"
+            value={numeroClase}
+            label="Selecciona la Clase"
+            onChange={(e) => setNumeroClase(Number(e.target.value))}
+          >
+            {CLASES.map((nombre, index) => (
+              <MenuItem key={index} value={index + 1}>
+                Clase {index + 1}: {nombre}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
 
         {/* --- Lista de Alumnos --- */}
-        {loading && <p>Cargando alumnos...</p>}
-        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {loading && <Typography>Cargando alumnos...</Typography>}
+        {error && <Typography color="error">{error}</Typography>}
         
         {!loading && (
-          <ul style={listStyle}>
+          <Stack spacing={2}>
             {alumnos.map(alumno => {
-              // Obtenemos el estado actual para este alumno
               const estadoActual = asistenciaEstado[alumno.id] || { estado: '', motivo: '', horarioAdelanto: null };
               
               return (
-                <li key={alumno.id} style={studentRowStyle}>
-                  {/* Fila 1: Nombre y Selector de Estado */}
-                  <div style={studentHeaderStyle}>
-                    <span>{alumno.nombres} {alumno.apellidos}</span>
-                    <select
-                      style={selectStyle}
-                      value={estadoActual.estado}
-                      onChange={(e) => handleAsistenciaChange(alumno.id, 'estado', e.target.value)}
-                    >
-                      <option value="">-- Seleccionar --</option>
-                      <option value="A">Asistió</option>
-                      <option value="F">Faltó</option>
-                      <option value="R">Recuperó</option>
-                      <option value="D">Adelantó</option>
-                    </select>
-                  </div>
-                  
-                  {/* --- NUEVO: Campos Condicionales --- */}
-                  
-                  {/* 2. Si es Faltó o Recuperó, mostrar campo de Motivo */}
-                  {(estadoActual.estado === 'F' || estadoActual.estado === 'R') && (
-                    <input
-                      type="text"
-                      placeholder="Escribe el motivo..."
-                      style={inputStyle}
-                      value={estadoActual.motivo}
-                      onChange={(e) => handleAsistenciaChange(alumno.id, 'motivo', e.target.value)}
-                    />
-                  )}
-                  
-                  {/* 3. Si es Adelantó, mostrar desplegable de Horarios */}
-                  {estadoActual.estado === 'D' && (
-                    <select
-                      style={inputStyle} // Reutilizamos el estilo del input
-                      value={estadoActual.horarioAdelanto || ''}
-                      onChange={(e) => handleAsistenciaChange(alumno.id, 'horarioAdelanto', e.target.value)}
-                    >
-                      <option value="">-- Selecciona horario donde adelantó --</option>
-                      {horarios.map(h => (
-                        <option key={h.id} value={h.id}>
-                          {h.dia === 'MIE' ? 'Miércoles' : 'Domingo'} {h.hora} (Curso: {h.curso})
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {/* --- FIN DE CAMPOS CONDICIONALES --- */}
-                </li>
+                <Paper key={alumno.id} variant="outlined" sx={{ p: 2 }}>
+                  <Grid container spacing={17} alignItems="center">
+                    {/* Columna 1: Nombre */}
+                    <Grid item xs={12} sm={4}>
+                      <Typography variant="body1">{alumno.nombres} {alumno.apellidos}</Typography>
+                    </Grid>
+                    
+                    {/* Columna 2: Selector de Estado */}
+                    <Grid item xs={12} sm={8}>
+                      <FormControl fullWidth>
+                        <InputLabel id={`estado-label-${alumno.id}`}>Estado</InputLabel>
+                        <Select
+                          labelId={`estado-label-${alumno.id}`}
+                          value={estadoActual.estado}
+                          label="Estado"
+                          onChange={(e) => handleAsistenciaChange(alumno.id, 'estado', e.target.value)}
+                        >
+                          <MenuItem value="">-- Seleccionar --</MenuItem>
+                          <MenuItem value="A">Asistió</MenuItem>
+                          <MenuItem value="F">Faltó</MenuItem>
+                          <MenuItem value="R">Recuperó</MenuItem>
+                          <MenuItem value="D">Adelantó</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    {/* --- Campos Condicionales --- */}
+                    
+                    {/* Si es Faltó o Recuperó, mostrar campo de Motivo */}
+                    {(estadoActual.estado === 'F' || estadoActual.estado === 'R') && (
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Motivo (Falta o Recuperación)"
+                          variant="outlined"
+                          value={estadoActual.motivo}
+                          onChange={(e) => handleAsistenciaChange(alumno.id, 'motivo', e.target.value)}
+                        />
+                      </Grid>
+                    )}
+                    
+                    {/* Si es Adelantó, mostrar desplegable de Horarios */}
+                    {estadoActual.estado === 'D' && (
+                      <Grid item xs={12}>
+                        <FormControl fullWidth>
+                          <InputLabel id={`horario-label-${alumno.id}`}>Horario donde adelantó</InputLabel>
+                          <Select
+                            labelId={`horario-label-${alumno.id}`}
+                            value={estadoActual.horarioAdelanto || ''}
+                            label="Horario donde adelantó"
+                            onChange={(e) => handleAsistenciaChange(alumno.id, 'horarioAdelanto', e.target.value)}
+                          >
+                            <MenuItem value="">-- Selecciona horario --</MenuItem>
+                            {horarios.map(h => (
+                              <MenuItem key={h.id} value={h.id}>
+                                {h.dia === 'MIE' ? 'Miércoles' : 'Domingo'} {h.hora}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    )}
+                    
+                  </Grid>
+                </Paper>
               );
             })}
-          </ul>
+          </Stack>
         )}
         
-        <hr />
-        <button type="submit" style={buttonStyle} disabled={loading}>
+        {error && <Typography color="error" sx={{ mt: 2 }}>{error}</Typography>}
+        
+        <Button 
+          type="submit" 
+          variant="contained" 
+          color="primary" 
+          size="large"
+          disabled={loading}
+          sx={{ mt: 3 }}
+        >
           Guardar Asistencia
-        </button>
-      </form>
-    </div>
+        </Button>
+      </Box>
+    </Box>
   );
 }

@@ -53,15 +53,14 @@ class CursoViewSet(viewsets.ModelViewSet):
             Alumno.objects.filter(mesa__in=mesas_del_curso).update(activo=False)
 
 class HorarioViewSet(viewsets.ModelViewSet):
-    queryset = Horario.objects.all()  # (Necesario para el router)
+    queryset = Horario.objects.all()  # (Esto debe estar)
     serializer_class = HorarioSerializer
-    permission_classes = [IsAdminUser]
+    # permission_classes = [IsAdminUser] # <-- ¡ELIMINA ESTA LÍNEA!
 
     def get_queryset(self):
         """
-        Devuelve TODOS los horarios (activos e inactivos),
-        ordenados por activo primero.
-        También filtra por 'curso' si se pasa en la URL.
+        Si se pide un curso, devuelve todos sus horarios (activos e inactivos).
+        Si no se pide un curso, devuelve SOLO los horarios ACTIVOS.
         """
         queryset = Horario.objects.all()
         
@@ -73,29 +72,35 @@ class HorarioViewSet(viewsets.ModelViewSet):
             
         return queryset.order_by('-activo', 'dia', 'hora')
 
-    def perform_update(self, serializer):
+    # --- AÑADE ESTA NUEVA FUNCIÓN ---
+    def get_permissions(self):
         """
-        Sobrescribe la actualización para manejar la desactivación en cascada.
+        Asigna permisos basados en la acción (el método HTTP).
         """
-        instance = serializer.save() # Guarda el horario primero
+        # Si la acción es 'list' o 'retrieve' (GET)
+        if self.action in ['list', 'retrieve']:
+            # Permite que Admins Y Facilitadores puedan LEER
+            permission_classes = [IsAdminOrFacilitador]
+        else:
+            # Para todo lo demás (POST, PUT, PATCH, DELETE)
+            # Solo permite Admins
+            permission_classes = [IsAdminUser]
+        
+        return [permission() for permission in permission_classes]
+    # --- FIN DE LA NUEVA FUNCIÓN ---
 
-        # Si el horario se está desactivando (pasando de True a False)
+    def perform_update(self, serializer):
+        # ... (esta función queda igual)
+        instance = serializer.save()
         if instance.activo is False and serializer.validated_data.get('activo') is False:
-            # 1. Desactivar todas las Mesas de este horario
             mesas_del_horario = Mesa.objects.filter(horario=instance)
             mesas_del_horario.update(activo=False)
-            
-            # 2. Desactivar todos los Alumnos de esas mesas
             Alumno.objects.filter(mesa__in=mesas_del_horario).update(activo=False)
     
     def perform_destroy(self, instance):
-        """
-        Sobrescribe el borrado (DELETE) para hacer un "soft delete".
-        """
+        # ... (esta función queda igual)
         instance.activo = False
         instance.save()
-        
-        # También desactivamos en cascada al "borrar"
         mesas_del_horario = Mesa.objects.filter(horario=instance)
         mesas_del_horario.update(activo=False)
         Alumno.objects.filter(mesa__in=mesas_del_horario).update(activo=False)
