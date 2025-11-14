@@ -17,6 +17,7 @@ import Facilitadores from './pages/Facilitadores';
 import Calendario from './pages/Calendario';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
+import AlumnoDetail from './pages/AlumnoDetail';
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
           <Route path="horarios/:horarioId" element={<HorarioDetail />} />
           <Route path="asistencia" element={<Asistencia />} />
           <Route path="alumnos" element={<Alumnos />} />
+          <Route path="alumnos/:alumnoId" element={<AlumnoDetail />} />
           <Route path="facilitadores" element={<Facilitadores />} />
           <Route path="calendario" element={<Calendario />} />
         </Route>

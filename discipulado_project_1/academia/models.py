@@ -87,6 +87,11 @@ class Alumno(models.Model):
     numero_casa = models.CharField(max_length=20, blank=True)
     
     activo = models.BooleanField(default=True) # Si el alumno sigue en el curso
+    
+    meta_personal = models.CharField(max_length=255, blank=True, default='')
+    testimonio = models.TextField(blank=True, default='')
+    areas_mejorar = models.CharField(max_length=255, blank=True, default='')
+    bautizado = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.nombres} {self.apellidos}"

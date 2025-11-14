@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import apiClient from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-// --- NUEVO: Importaciones de MUI ---
+// --- Importaciones de MUI ---
 import {
   Box,
   Button,
@@ -16,7 +16,7 @@ import {
   Stack,
   TextField,
   Grid,
-  Autocomplete,
+  Autocomplete, // (Lo mantengo porque lo tenías en tu import)
 } from '@mui/material';
 // ---
 
@@ -123,7 +123,7 @@ export default function Asistencia() {
     }
   };
 
-  // --- RENDERIZADO (Aquí están los cambios) ---
+  // --- RENDERIZADO (Aquí están los cambios de diseño) ---
   return (
     <Box>
       <Typography variant="h4" component="h1" gutterBottom>
@@ -132,7 +132,7 @@ export default function Asistencia() {
       
       <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
         {/* --- Selector de Clase con MUI --- */}
-        <FormControl sx={{ mb: 3, minWidth: 400 }}>
+        <FormControl sx={{ mb: 3, minWidth: { xs: '100%', sm: 400 } }}> {/* Ancho completo en móvil */}
           <InputLabel id="clase-select-label">Selecciona la Clase</InputLabel>
           <Select
             labelId="clase-select-label"
@@ -160,15 +160,19 @@ export default function Asistencia() {
               
               return (
                 <Paper key={alumno.id} variant="outlined" sx={{ p: 2 }}>
-                  <Grid container spacing={17} alignItems="center">
-                    {/* Columna 1: Nombre */}
-                    <Grid item xs={12} sm={4}>
-                      <Typography variant="body1">{alumno.nombres} {alumno.apellidos}</Typography>
+                  {/* --- CAMBIO AQUÍ: Grid con spacing={2} --- */}
+                  <Grid container spacing={2} alignItems="center">
+                    
+                    {/* Columna 1: Nombre (Izquierda) */}
+                    <Grid item xs={12} sm={5}> {/* 5/12 del ancho en pantallas SMedium */}
+                      <Typography variant="body1" fontWeight="500">
+                        {alumno.nombres} {alumno.apellidos}
+                      </Typography>
                     </Grid>
                     
-                    {/* Columna 2: Selector de Estado */}
-                    <Grid item xs={12} sm={8}>
-                      <FormControl fullWidth>
+                    {/* Columna 2: Selector de Estado (Derecha) */}
+                    <Grid item xs={12} sm={7}> {/* 7/12 del ancho */}
+                      <FormControl fullWidth size="small">
                         <InputLabel id={`estado-label-${alumno.id}`}>Estado</InputLabel>
                         <Select
                           labelId={`estado-label-${alumno.id}`}
@@ -185,15 +189,16 @@ export default function Asistencia() {
                       </FormControl>
                     </Grid>
 
-                    {/* --- Campos Condicionales --- */}
+                    {/* --- Campos Condicionales (Debajo) --- */}
                     
                     {/* Si es Faltó o Recuperó, mostrar campo de Motivo */}
                     {(estadoActual.estado === 'F' || estadoActual.estado === 'R') && (
-                      <Grid item xs={12}>
+                      <Grid item xs={12} sx={{ pt: 1 }}> {/* pt: 1 añade un poco de padding top */}
                         <TextField
                           fullWidth
                           label="Motivo (Falta o Recuperación)"
                           variant="outlined"
+                          size="small"
                           value={estadoActual.motivo}
                           onChange={(e) => handleAsistenciaChange(alumno.id, 'motivo', e.target.value)}
                         />
@@ -202,8 +207,8 @@ export default function Asistencia() {
                     
                     {/* Si es Adelantó, mostrar desplegable de Horarios */}
                     {estadoActual.estado === 'D' && (
-                      <Grid item xs={12}>
-                        <FormControl fullWidth>
+                      <Grid item xs={12} sx={{ pt: 1 }}>
+                        <FormControl fullWidth size="small">
                           <InputLabel id={`horario-label-${alumno.id}`}>Horario donde adelantó</InputLabel>
                           <Select
                             labelId={`horario-label-${alumno.id}`}

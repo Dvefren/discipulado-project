@@ -1,8 +1,9 @@
 // En src/pages/Alumnos.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import apiClient from '../services/api';
 
-// --- NUEVO: Importaciones de MUI ---
+// --- Importaciones de MUI ---
 import {
   Box,
   Button,
@@ -18,23 +19,23 @@ import {
   FormControl,
   InputLabel,
   Stack,
-  Grid, // Para el formulario
+  Grid,
 } from '@mui/material';
 
-// --- NUEVO: Importaciones de Iconos ---
+// --- Importaciones de Iconos ---
 import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 import DoNotDisturbOnIcon from '@mui/icons-material/DoNotDisturbOn';
+import SearchIcon from '@mui/icons-material/Search'; // Icono de búsqueda
 // ---
 
-// --- NUEVO: Estilo para el Modal (más ancho para el formulario) ---
+// --- Estilo para el Modal ---
 const modalStyle = {
   position: 'absolute',
   top: '50%',
   left: '50%',
   transform: 'translate(-50%, -50%)',
-  width: 600, // Más ancho para el formulario de alumno
+  width: 600,
   bgcolor: 'background.paper',
   border: '2px solid #000',
   boxShadow: 24,
@@ -51,21 +52,24 @@ const initialFormState = {
   colonia: '',
   calle: '',
   numero_casa: '',
-  mesa: '', // ID de la mesa seleccionada
+  mesa: '',
 };
 
 export default function Alumnos() {
-  const [alumnos, setAlumnos] = useState([]);
+  const [alumnos, setAlumnos] = useState([]); // La lista "maestra"
   const [mesas, setMesas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [formMode, setFormMode] = useState('hidden'); // 'hidden', 'create', 'edit'
-  const [editingAlumno, setEditingAlumno] = useState(null);
+  const [formMode, setFormMode] = useState('hidden');
   const [formError, setFormError] = useState(null);
   const [formData, setFormData] = useState(initialFormState);
 
-  // --- (Lógica de fetchData - queda igual) ---
+  // --- Estado para el buscador ---
+  const [searchTerm, setSearchTerm] = useState('');
+  // ---
+
+  // --- Cargar datos ---
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -85,10 +89,10 @@ export default function Alumnos() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(); // Carga inicial
   }, []);
 
-  // --- (Lógica de fetchAlumnosOnly - queda igual) ---
+  // Recarga solo la lista de alumnos
   const fetchAlumnosOnly = async () => {
     try {
       const alumnosRes = await apiClient.get('/alumnos/');
@@ -98,69 +102,54 @@ export default function Alumnos() {
     }
   };
 
-  // --- (Lógica de handleInputChange - queda igual) ---
+  // --- Manejadores del formulario ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
 
-  // --- (Lógica de handleSubmit - queda igual) ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError(null);
-    if (!formData.nombres || !formData.apellidos || !formData.fecha_nacimiento || !formData.mesa) {
-      setFormError("Nombres, apellidos, fecha de nacimiento y mesa son obligatorios.");
-      return;
-    }
-    const method = (formMode === 'edit') ? 'patch' : 'post';
-    const url = (formMode === 'edit') ? `/alumnos/${editingAlumno.id}/` : '/alumnos/';
-    const payload = { ...formData };
-    if (payload.mesa) {
-      payload.mesa = parseInt(payload.mesa);
-    }
-    try {
-      await apiClient[method](url, payload);
-      handleCancel();
-      fetchAlumnosOnly();
-    } catch (err) {
-      console.error("Error al guardar alumno:", err);
-      setFormError("Error al guardar el alumno.");
+
+    if (formMode === 'create') {
+      if (!formData.nombres || !formData.apellidos || !formData.fecha_nacimiento || !formData.mesa) {
+        setFormError("Nombres, apellidos, fecha de nacimiento y mesa son obligatorios.");
+        return;
+      }
+      
+      const payload = { ...formData };
+      if (payload.mesa) {
+        payload.mesa = parseInt(payload.mesa);
+      }
+      
+      try {
+        await apiClient.post('/alumnos/', payload);
+        handleCancel();
+        fetchAlumnosOnly();
+      } catch (err) {
+        console.error("Error al crear alumno:", err);
+        setFormError("Error al crear el alumno.");
+      }
     }
   };
   
-  // --- (Lógica de 'handleShow...' y 'handleCancel' - queda igual) ---
+  // --- (Manejadores de botones) ---
   const handleShowCreateForm = () => {
     setFormMode('create');
-    setEditingAlumno(null);
     setFormData(initialFormState);
     if (mesas.length === 1) {
       setFormData(prev => ({ ...prev, mesa: mesas[0].id }));
     }
   };
 
-  const handleShowEditForm = (alumno) => {
-    setFormMode('edit');
-    setEditingAlumno(alumno);
-    setFormData({
-      nombres: alumno.nombres || '',
-      apellidos: alumno.apellidos || '',
-      fecha_nacimiento: alumno.fecha_nacimiento || '',
-      telefono: alumno.telefono || '',
-      colonia: alumno.colonia || '',
-      calle: alumno.calle || '',
-      numero_casa: alumno.numero_casa || '',
-      mesa: alumno.mesa || '',
-    });
-  };
-
   const handleCancel = () => {
     setFormMode('hidden');
-    setEditingAlumno(null);
     setFormData(initialFormState);
     setFormError(null);
   };
 
-  // --- (Lógica de 'handleDeactivate' y 'handleActivate' - queda igual) ---
+  // --- (Manejadores de Activar/Desactivar) ---
   const handleDeactivate = async (alumnoId) => {
     if (window.confirm("¿Estás seguro de que quieres DESACTIVAR este alumno?")) {
       try {
@@ -185,8 +174,19 @@ export default function Alumnos() {
     }
   };
 
-  // --- RENDERIZADO (Aquí están los cambios) ---
+  // --- Lógica de filtrado ---
+  const filteredAlumnos = useMemo(() => {
+    if (!searchTerm) {
+      return alumnos; // Si no hay búsqueda, devuelve la lista completa
+    }
+    return alumnos.filter(alumno => 
+      alumno.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      alumno.apellidos.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [alumnos, searchTerm]);
+  // ---
 
+  // --- Renderizado ---
   if (loading) {
     return <Typography>Cargando datos...</Typography>;
   }
@@ -212,61 +212,27 @@ export default function Alumnos() {
         </Button>
       )}
 
-      {/* --- Formulario en un Modal --- */}
+      {/* --- Formulario de Creación en Modal --- */}
       <Modal
-        open={formMode !== 'hidden'}
+        open={formMode === 'create'}
         onClose={handleCancel}
       >
         <Box sx={modalStyle}>
           <Typography variant="h5" component="h2">
-            {formMode === 'create' ? 'Nuevo Alumno' : `Editando a: ${editingAlumno ? editingAlumno.nombres : ''}`}
+            Nuevo Alumno
           </Typography>
           
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2, maxHeight: '70vh', overflowY: 'auto' }}>
             <Grid container spacing={2}>
-              {/* --- Columna Izquierda --- */}
+              {/* Columna Izquierda */}
               <Grid item xs={12} sm={6}>
-                <TextField
-                  name="nombres"
-                  label="Nombres"
-                  value={formData.nombres}
-                  onChange={handleInputChange}
-                  fullWidth
-                  margin="normal"
-                  required
-                />
-                <TextField
-                  name="apellidos"
-                  label="Apellidos"
-                  value={formData.apellidos}
-                  onChange={handleInputChange}
-                  fullWidth
-                  margin="normal"
-                  required
-                />
-                <TextField
-                  name="fecha_nacimiento"
-                  label="Fecha de Nacimiento"
-                  type="date"
-                  value={formData.fecha_nacimiento}
-                  onChange={handleInputChange}
-                  fullWidth
-                  margin="normal"
-                  required
-                  InputLabelProps={{ shrink: true }}
-                />
-                <TextField
-                  name="telefono"
-                  label="Teléfono"
-                  type="tel"
-                  value={formData.telefono}
-                  onChange={handleInputChange}
-                  fullWidth
-                  margin="normal"
-                />
+                <TextField name="nombres" label="Nombres" value={formData.nombres} onChange={handleInputChange} fullWidth margin="normal" required />
+                <TextField name="apellidos" label="Apellidos" value={formData.apellidos} onChange={handleInputChange} fullWidth margin="normal" required />
+                <TextField name="fecha_nacimiento" label="Fecha de Nacimiento" type="date" value={formData.fecha_nacimiento} onChange={handleInputChange} fullWidth margin="normal" required InputLabelProps={{ shrink: true }} />
+                <TextField name="telefono" label="Teléfono" type="tel" value={formData.telefono} onChange={handleInputChange} fullWidth margin="normal" />
               </Grid>
               
-              {/* --- Columna Derecha --- */}
+              {/* Columna Derecha */}
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth margin="normal" required>
                   <InputLabel id="mesa-select-label">* Mesa Asignada</InputLabel>
@@ -286,80 +252,75 @@ export default function Alumnos() {
                     ))}
                   </Select>
                 </FormControl>
-                
-                <TextField
-                  name="colonia"
-                  label="Colonia"
-                  value={formData.colonia}
-                  onChange={handleInputChange}
-                  fullWidth
-                  margin="normal"
-                />
-                <TextField
-                  name="calle"
-                  label="Calle"
-                  value={formData.calle}
-                  onChange={handleInputChange}
-                  fullWidth
-                  margin="normal"
-                />
-                <TextField
-                  name="numero_casa"
-                  label="Número"
-                  value={formData.numero_casa}
-                  onChange={handleInputChange}
-                  fullWidth
-                  margin="normal"
-                />
+                <TextField name="colonia" label="Colonia" value={formData.colonia} onChange={handleInputChange} fullWidth margin="normal" />
+                <TextField name="calle" label="Calle" value={formData.calle} onChange={handleInputChange} fullWidth margin="normal" />
+                <TextField name="numero_casa" label="Número" value={formData.numero_casa} onChange={handleInputChange} fullWidth margin="normal" />
               </Grid>
             </Grid>
 
             {formError && <Typography color="error" sx={{ mt: 2 }}>{formError}</Typography>}
             
             <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
-              <Button variant="outlined" onClick={handleCancel}>
-                Cancelar
-              </Button>
-              <Button variant="contained" type="submit">
-                {formMode === 'create' ? 'Crear Alumno' : 'Guardar Cambios'}
-              </Button>
+              <Button variant="outlined" onClick={handleCancel}>Cancelar</Button>
+              <Button variant="contained" type="submit">Crear Alumno</Button>
             </Stack>
           </Box>
         </Box>
       </Modal>
 
+      {/* --- Barra de Búsqueda --- */}
+      <TextField
+        label="Buscar Alumno (por nombre o apellido)"
+        variant="outlined"
+        fullWidth
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        sx={{ mb: 3 }}
+        InputProps={{
+          startAdornment: (
+            <SearchIcon sx={{ color: 'action.active', mr: 1 }} />
+          ),
+        }}
+      />
+      {/* --- Fin de la Barra de Búsqueda --- */}
+
       {/* --- Lista de Alumnos con MUI Cards --- */}
       <Stack spacing={2}>
-        {alumnos.length === 0 ? (
-          <Typography>No hay alumnos registrados.</Typography>
+        {filteredAlumnos.length === 0 ? (
+          <Typography>
+            {searchTerm 
+              ? 'No se encontraron alumnos con ese nombre.' 
+              : 'No hay alumnos registrados.'
+            }
+          </Typography>
         ) : (
-          alumnos.map((alumno) => (
+          filteredAlumnos.map((alumno) => (
             <Card key={alumno.id} variant="outlined" sx={{ opacity: alumno.activo ? 1 : 0.6 }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="h5" component="div">
-                    {alumno.nombres} {alumno.apellidos}
+              <RouterLink 
+                to={`/alumnos/${alumno.id}`} 
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="h5" component="div">
+                      {alumno.nombres} {alumno.apellidos}
+                    </Typography>
+                    {alumno.activo ? 
+                      <Chip label="Activo" color="success" size="small" /> :
+                      <Chip label="Inactivo" color="default" size="small" />
+                    }
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Teléfono: {alumno.telefono || 'No especificado'}
                   </Typography>
-                  {alumno.activo ? 
-                    <Chip label="Activo" color="success" size="small" /> :
-                    <Chip label="Inactivo" color="default" size="small" />
-                  }
-                </Box>
-                <Typography variant="body2" color="text.secondary">
-                  Teléfono: {alumno.telefono || 'No especificado'}
-                </Typography>
-              </CardContent>
+                </CardContent>
+              </RouterLink>
               
               <CardActions sx={{ justifyContent: 'flex-end' }}>
                 {alumno.activo ? (
-                  <>
-                    <Button size="small" variant="outlined" color="warning" startIcon={<EditIcon />} onClick={() => handleShowEditForm(alumno)}>
-                      Editar
-                    </Button>
-                    <Button size="small" variant="outlined" color="error" startIcon={<DoNotDisturbOnIcon />} onClick={() => handleDeactivate(alumno.id)}>
-                      Desactivar
-                    </Button>
-                  </>
+                  <Button size="small" variant="outlined" color="error" startIcon={<DoNotDisturbOnIcon />} onClick={() => handleDeactivate(alumno.id)}>
+                    Desactivar
+                  </Button>
                 ) : (
                   <Button size="small" variant="outlined" color="success" startIcon={<PowerSettingsNewIcon />} onClick={() => handleActivate(alumno.id)}>
                     Activar
